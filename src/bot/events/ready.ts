@@ -1,5 +1,5 @@
 import { Client } from 'discord.js';
-import { logger } from '../utils/logger';
+import { logger } from '../../shared/logger';
 
 module.exports = {
   name: 'ready',
