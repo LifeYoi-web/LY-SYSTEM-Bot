@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model GuildSettings {
+  guildId      String         @id
+  logChannelId String?
+  staffRoleIds String[]       @default([])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  autoMod      AutoModConfig?
+}
+
+model AutoModConfig {
+  guildId           String        @id
+  antiSpam          Boolean       @default(false)
+  antiInvite        Boolean       @default(false)
+  antiLink          Boolean       @default(false)
+  bannedWords       String[]      @default([])
+  maxMentions       Int           @default(5)
+  actionOnViolation String        @default("delete")
+  muteSeconds       Int           @default(300)
+  settings          GuildSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+}
+
+model ModerationCase {
+  id           String    @id @default(cuid())
+  guildId      String
+  targetUserId String
+  moderatorId  String
+  type         String
+  reason       String?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime?
+  active       Boolean   @default(true)
+
+  @@index([guildId, targetUserId])
+  @@index([guildId, active, expiresAt])
+}
+
+model LogEntry {
+  id        String   @id @default(cuid())
+  guildId   String
+  type      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([guildId, type, createdAt])
+}
