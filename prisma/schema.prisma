@@ -7,23 +7,34 @@ datasource db {
 }
 
 model GuildSettings {
-  guildId      String         @id
-  logChannelId String?
-  staffRoleIds String[]       @default([])
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  autoMod      AutoModConfig?
+  guildId        String         @id
+  language       String         @default("ar")
+  logChannelId   String?
+  staffRoleIds   String[]       @default([])
+  // Welcome / goodbye (1:1, folded in to avoid an extra join)
+  welcomeEnabled Boolean        @default(false)
+  welcomeChannelId String?
+  welcomeMessage String?
+  goodbyeEnabled Boolean        @default(false)
+  goodbyeMessage String?
+  autoRoleId     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  autoMod        AutoModConfig?
 }
 
 model AutoModConfig {
   guildId           String        @id
+  enabled           Boolean       @default(false)
   antiSpam          Boolean       @default(false)
   antiInvite        Boolean       @default(false)
   antiLink          Boolean       @default(false)
   bannedWords       String[]      @default([])
   maxMentions       Int           @default(5)
-  actionOnViolation String        @default("delete")
+  actionOnViolation String        @default("delete") // delete | warn | mute | kick | ban
   muteSeconds       Int           @default(300)
+  ignoredChannelIds String[]      @default([])
+  ignoredRoleIds    String[]      @default([])
   settings          GuildSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
 }
 
@@ -40,6 +51,7 @@ model ModerationCase {
 
   @@index([guildId, targetUserId])
   @@index([guildId, active, expiresAt])
+  @@index([guildId, createdAt])
 }
 
 model LogEntry {
@@ -50,4 +62,21 @@ model LogEntry {
   createdAt DateTime @default(now())
 
   @@index([guildId, type, createdAt])
+  @@index([guildId, createdAt])
+}
+
+// One row per guild per UTC day, upserted by the in-memory stat aggregator that
+// the scheduler flushes. Powers the analytics charts without writing a row per event.
+model DailyStat {
+  id          String   @id @default(cuid())
+  guildId     String
+  date        String // YYYY-MM-DD (UTC)
+  messages    Int      @default(0)
+  joins       Int      @default(0)
+  leaves      Int      @default(0)
+  modActions  Int      @default(0)
+  memberCount Int      @default(0)
+
+  @@unique([guildId, date])
+  @@index([guildId, date])
 }

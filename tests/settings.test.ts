@@ -39,4 +39,22 @@ describe('settings router', () => {
   it('PUT / 400s when staffRoleIds is not an array', async () => {
     await request(app()).put('/api/settings').send({ staffRoleIds: 'r1' }).expect(400);
   });
+
+  it('PUT / persists welcome config and clears empty ids to null', async () => {
+    const res = await request(app())
+      .put('/api/settings')
+      .send({ welcomeEnabled: true, welcomeChannelId: 'wc1', welcomeMessage: 'أهلًا {user}', autoRoleId: '' })
+      .expect(200);
+    expect(updateSettings).toHaveBeenCalledWith('g1', {
+      welcomeEnabled: true,
+      welcomeChannelId: 'wc1',
+      welcomeMessage: 'أهلًا {user}',
+      autoRoleId: null,
+    });
+    expect(res.body.welcomeEnabled).toBe(true);
+  });
+
+  it('PUT / 400s on an unsupported language', async () => {
+    await request(app()).put('/api/settings').send({ language: 'fr' }).expect(400);
+  });
 });

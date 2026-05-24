@@ -12,7 +12,12 @@ import { createOverviewRouter } from './routes/overview';
 import { createMembersRouter } from './routes/members';
 import { createModerationRouter } from './routes/moderation';
 import { createSettingsRouter } from './routes/settings';
+import { createAutoModRouter } from './routes/automod';
+import { createLogsRouter } from './routes/logs';
+import { createAnalyticsRouter } from './routes/analytics';
+import { createServerRouter } from './routes/server';
 import { requireStaff } from './middleware/requireStaff';
+import { rateLimit } from './middleware/rateLimit';
 
 export interface ApiDeps {
   client: Client;
@@ -23,7 +28,18 @@ export interface ApiDeps {
 
 export function createApp(deps: ApiDeps): Express {
   const app = express();
-  app.use(helmet());
+  app.set('trust proxy', 1); // Railway terminates TLS at a proxy; needed for secure cookies + req.ip
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          // Discord CDN serves member/guild avatars; the default img-src ('self' data:) blocks them.
+          'img-src': ["'self'", 'data:', 'https://cdn.discordapp.com'],
+        },
+      },
+    }),
+  );
   app.use(express.json());
 
   const PgStore = connectPgSimple(session);
@@ -46,10 +62,21 @@ export function createApp(deps: ApiDeps): Express {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', createAuthRouter(deps));
+
+  // Everything below requires an authorized staff session.
   app.use('/api/overview', requireStaff(), createOverviewRouter(deps));
+  app.use('/api/analytics', requireStaff(), createAnalyticsRouter(deps));
   app.use('/api/members', requireStaff(), createMembersRouter(deps));
-  app.use('/api/moderation', requireStaff(), createModerationRouter(deps));
+  app.use('/api/server', requireStaff(), createServerRouter(deps));
+  app.use('/api/logs', requireStaff(), createLogsRouter(deps));
+  app.use(
+    '/api/moderation',
+    requireStaff(),
+    rateLimit({ windowMs: 60_000, max: 30 }),
+    createModerationRouter(deps),
+  );
   app.use('/api/settings', requireStaff(), createSettingsRouter({ config: deps.config }));
+  app.use('/api/automod', requireStaff(), createAutoModRouter({ config: deps.config }));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));

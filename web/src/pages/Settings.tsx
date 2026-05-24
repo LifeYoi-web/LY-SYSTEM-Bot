@@ -1,67 +1,84 @@
 import { useEffect, useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { api, apiPut } from '../lib/api';
-
-interface GuildSettings {
-  guildId: string;
-  logChannelId: string | null;
-  staffRoleIds: string[];
-}
+import { useSettings, useUpdateSettings } from '../lib/hooks';
+import type { Settings as SettingsT } from '../lib/types';
+import { Icon } from '../lib/icons';
+import { SkeletonRows, toast } from '../components/ui';
+import { Select, MultiSelect, useChannelOptions, useRoleOptions } from '../components/pickers';
 
 export function Settings() {
-  const { data } = useQuery<GuildSettings>({ queryKey: ['settings'], queryFn: () => api('/settings') });
-  const [logChannelId, setLogChannelId] = useState('');
-  const [staffRoles, setStaffRoles] = useState('');
-  const [saved, setSaved] = useState(false);
+  const { data, isLoading } = useSettings();
+  const save = useUpdateSettings();
+  const channels = useChannelOptions(['text', 'announcement']);
+  const roles = useRoleOptions();
+  const [d, setD] = useState<SettingsT | null>(null);
 
   useEffect(() => {
-    if (data) {
-      setLogChannelId(data.logChannelId ?? '');
-      setStaffRoles(data.staffRoleIds.join(', '));
-    }
+    if (data) setD(data);
   }, [data]);
 
-  const save = useMutation({
-    mutationFn: () =>
-      apiPut('/settings', {
-        logChannelId: logChannelId.trim() || null,
-        staffRoleIds: staffRoles.split(',').map((s) => s.trim()).filter(Boolean),
-      }),
-    onSuccess: () => {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2200);
-    },
-  });
+  if (isLoading || !d) return <SkeletonRows rows={5} />;
+  const set = <K extends keyof SettingsT>(k: K, v: SettingsT[K]) => setD({ ...d, [k]: v });
+
+  function submit() {
+    if (!d) return;
+    save.mutate(
+      {
+        language: d.language,
+        logChannelId: d.logChannelId,
+        staffRoleIds: d.staffRoleIds,
+      },
+      { onSuccess: () => toast('تم حفظ الإعدادات'), onError: () => toast('فشل الحفظ', 'err') },
+    );
+  }
 
   return (
-    <div className="card card-pad" style={{ maxWidth: 580 }}>
-      <h2 className="card-title">⚙️ إعدادات السيرفر</h2>
-      <div className="field">
-        <label>قناة السجلّات (Channel ID)</label>
-        <input
-          className="input"
-          value={logChannelId}
-          onChange={(e) => setLogChannelId(e.target.value)}
-          placeholder="مثال: 123456789012345678"
-        />
-        <div className="hint">القناة اللي تنكتب فيها سجلّات الأحداث.</div>
+    <div className="stack" style={{ maxWidth: 680 }}>
+      <div className="card card-pad">
+        <div className="card-hd">
+          <div className="card-title">
+            <Icon name="globe" /> اللغة
+          </div>
+        </div>
+        <div className="seg">
+          <button className={d.language === 'ar' ? 'on' : ''} onClick={() => set('language', 'ar')}>
+            العربية
+          </button>
+          <button className={d.language === 'en' ? 'on' : ''} onClick={() => set('language', 'en')}>
+            English
+          </button>
+        </div>
       </div>
-      <div className="field">
-        <label>رتب الإدارة (Role IDs مفصولة بفاصلة)</label>
-        <input
-          className="input"
-          value={staffRoles}
-          onChange={(e) => setStaffRoles(e.target.value)}
-          placeholder="roleId1, roleId2"
-        />
-        <div className="hint">أصحاب هذي الرتب يقدرون يدخلون اللوحة (بالإضافة لمن عنده صلاحية Administrator / Manage Guild).</div>
+
+      <div className="card card-pad">
+        <div className="card-hd">
+          <div className="card-title">
+            <Icon name="scroll" /> قناة السجلّات
+          </div>
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>القناة التي تُنشر فيها أحداث السيرفر</label>
+          <Select value={d.logChannelId} onChange={(v) => set('logChannelId', v)} options={channels} placeholder="بدون قناة سجلّات" />
+          <div className="hint">تشمل الإجراءات الإشرافية، حالات الحماية، حذف الرسائل، والانضمام/المغادرة.</div>
+        </div>
       </div>
+
+      <div className="card card-pad">
+        <div className="card-hd">
+          <div className="card-title">
+            <Icon name="users" /> رتب الإدارة
+          </div>
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>الرتب التي يُسمح لها بدخول لوحة التحكم</label>
+          <MultiSelect value={d.staffRoleIds} onChange={(v) => set('staffRoleIds', v)} options={roles} />
+          <div className="hint">بالإضافة إلى من يملك صلاحية Administrator أو Manage Guild.</div>
+        </div>
+      </div>
+
       <div className="row">
-        <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>
-          {save.isPending ? '...' : 'حفظ التغييرات'}
+        <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>
+          <Icon name="check" /> {save.isPending ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}
         </button>
-        {saved && <span className="toast">تم الحفظ ✓</span>}
-        {save.isError && <span className="err-text">فشل الحفظ</span>}
       </div>
     </div>
   );

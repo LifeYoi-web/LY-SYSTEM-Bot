@@ -3,6 +3,22 @@ import type { GuildSettings } from '@prisma/client';
 
 const cache = new Map<string, GuildSettings>();
 
+/** Fields the dashboard is allowed to write to GuildSettings. */
+export type EditableSettings = Partial<
+  Pick<
+    GuildSettings,
+    | 'language'
+    | 'logChannelId'
+    | 'staffRoleIds'
+    | 'welcomeEnabled'
+    | 'welcomeChannelId'
+    | 'welcomeMessage'
+    | 'goodbyeEnabled'
+    | 'goodbyeMessage'
+    | 'autoRoleId'
+  >
+>;
+
 export async function ensureGuildSettings(guildId: string): Promise<GuildSettings> {
   const settings = await prisma.guildSettings.upsert({
     where: { guildId },
@@ -25,7 +41,7 @@ export function invalidateSettings(guildId: string): void {
 
 export async function updateSettings(
   guildId: string,
-  data: Partial<Pick<GuildSettings, 'logChannelId' | 'staffRoleIds'>>,
+  data: EditableSettings,
 ): Promise<GuildSettings> {
   const settings = await prisma.guildSettings.update({ where: { guildId }, data });
   cache.set(guildId, settings);

@@ -87,7 +87,8 @@ export function createAuthRouter(deps: AuthDeps): Router {
             logger.error(`Session save failed: ${saveErr.message}`);
             return res.redirect(`${config.dashboardUrl}/login?error=oauth`);
           }
-          res.redirect(config.dashboardUrl);
+          // The SPA root ("/") is now the public site; send authed staff to the dashboard.
+          res.redirect(`${config.dashboardUrl}/dashboard`);
         });
       });
     } catch (err) {

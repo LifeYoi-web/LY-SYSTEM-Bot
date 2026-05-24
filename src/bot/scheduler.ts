@@ -1,6 +1,7 @@
 import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import { liftCase, type ActionDeps, type GuildLike } from './moderation/actions';
+import { flushStats } from './stats';
 import { logger } from '../shared/logger';
 
 export async function liftExpiredCases(deps: ActionDeps): Promise<number> {
@@ -21,6 +22,11 @@ export interface SchedulerDeps {
 
 export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS.Timeout {
   const tick = async () => {
+    // Flush buffered activity counters for every guild the bot can see.
+    const memberCounts: Record<string, number> = {};
+    for (const g of deps.client.guilds.cache.values()) memberCounts[g.id] = g.memberCount;
+    await flushStats(deps.prisma, memberCounts).catch((err) => logger.error(`Stats flush error: ${err}`));
+
     const guild = deps.client.guilds.cache.get(deps.guildId);
     if (!guild) return;
     try {

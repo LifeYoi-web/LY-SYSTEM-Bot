@@ -99,7 +99,8 @@ export async function liftCase(deps: ActionDeps, caseId: string): Promise<Modera
       await deps.guild.members.unban(found.targetUserId, 'case lifted').catch(() => undefined);
     } else if (found.type === 'mute') {
       const member = await deps.guild.members.fetch(found.targetUserId).catch(() => null);
-      await member?.timeout(null, 'case lifted');
+      // Must not throw: otherwise the case never flips inactive and the scheduler retries it forever.
+      await member?.timeout(null, 'case lifted').catch(() => undefined);
     }
   }
   const updated = await deps.prisma.moderationCase.update({
