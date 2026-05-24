@@ -1,37 +1,95 @@
 import { Interaction, Collection, MessageFlags, type ButtonInteraction } from 'discord.js';
+import { prisma } from '../../db/prisma';
 import { logger } from '../../shared/logger';
+import { openTicket, closeTicket } from '../tickets';
+import { buildSuggestionMessage } from '../suggestions';
+
+const EPH = { flags: MessageFlags.Ephemeral } as const;
 
 async function handleRoleButton(interaction: ButtonInteraction): Promise<void> {
   const roleId = interaction.customId.slice(3); // strip "rr:"
   if (!interaction.guild) return;
   const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    await interaction.reply({ content: '❌ تعذّر إيجاد عضويتك.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: '❌ تعذّر إيجاد عضويتك.', ...EPH });
     return;
   }
   try {
     if (member.roles.cache.has(roleId)) {
       await member.roles.remove(roleId);
-      await interaction.reply({ content: `➖ أزلت رتبة <@&${roleId}>`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: `➖ أزلت رتبة <@&${roleId}>`, ...EPH });
     } else {
       await member.roles.add(roleId);
-      await interaction.reply({ content: `➕ أضفت رتبة <@&${roleId}>`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: `➕ أضفت رتبة <@&${roleId}>`, ...EPH });
     }
   } catch {
-    await interaction.reply({
-      content: '❌ تعذّر تعديل الرتبة — تأكد أن رتبة البوت أعلى من الرتبة المطلوبة.',
-      flags: MessageFlags.Ephemeral,
-    });
+    await interaction.reply({ content: '❌ تعذّر تعديل الرتبة — تأكد أن رتبة البوت أعلى من الرتبة المطلوبة.', ...EPH });
   }
+}
+
+async function handleTicketButton(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  if (interaction.customId === 'ticket:open') {
+    await interaction.deferReply(EPH);
+    const channel = await openTicket(interaction.guild, prisma, interaction.user.id);
+    await interaction.editReply(
+      channel
+        ? `✅ تم فتح تذكرتك: <#${channel.id}>`
+        : '❌ تعذّر فتح التذكرة — قد تكون لديك تذكرة مفتوحة أو النظام متوقف.',
+    );
+  } else if (interaction.customId === 'ticket:close') {
+    await interaction.reply({ content: '🔒 يتم إغلاق التذكرة...', ...EPH }).catch(() => undefined);
+    await closeTicket(interaction.guild, prisma, interaction.channelId, interaction.user.id);
+  }
+}
+
+async function handleGiveawayButton(interaction: ButtonInteraction): Promise<void> {
+  const id = interaction.customId.slice(3); // strip "gw:"
+  const g = await prisma.giveaway.findUnique({ where: { id } });
+  if (!g || g.ended) {
+    await interaction.reply({ content: '❌ هذا السحب انتهى.', ...EPH });
+    return;
+  }
+  const uid = interaction.user.id;
+  const inside = g.entrants.includes(uid);
+  // Join uses an atomic push (duplicates are harmless — pickWinners dedupes). Leave
+  // is a rare read-modify-write, acceptable since double-leave just no-ops.
+  await prisma.giveaway.update({
+    where: { id },
+    data: inside ? { entrants: g.entrants.filter((x) => x !== uid) } : { entrants: { push: uid } },
+  });
+  await interaction.reply({ content: inside ? '➖ خرجت من السحب.' : '🎉 دخلت السحب، بالتوفيق!', ...EPH });
+}
+
+async function handleSuggestionVote(interaction: ButtonInteraction): Promise<void> {
+  const [, dir, id] = interaction.customId.split(':'); // sg:up:<id>
+  const s = await prisma.suggestion.findUnique({ where: { id } });
+  if (!s || s.status !== 'pending') {
+    await interaction.reply({ content: '❌ انتهى التصويت على هذا الاقتراح.', ...EPH });
+    return;
+  }
+  if (s.voters.includes(interaction.user.id)) {
+    await interaction.reply({ content: '🗳️ صوّتّ على هذا الاقتراح من قبل.', ...EPH });
+    return;
+  }
+  // Atomic increment (the voters guard above prevents an individual from double-voting).
+  const updated = await prisma.suggestion.update({
+    where: { id },
+    data: { ...(dir === 'up' ? { up: { increment: 1 } } : { down: { increment: 1 } }), voters: { push: interaction.user.id } },
+  });
+  await interaction.update(buildSuggestionMessage(updated)).catch(() => undefined);
 }
 
 module.exports = {
   name: 'interactionCreate',
   once: false,
   async execute(interaction: Interaction, commands: Collection<string, any>) {
-    // Button interactions (role panels use customId "rr:<roleId>").
     if (interaction.isButton()) {
-      if (interaction.customId.startsWith('rr:')) await handleRoleButton(interaction).catch(() => undefined);
+      const id = interaction.customId;
+      if (id.startsWith('rr:')) await handleRoleButton(interaction).catch(() => undefined);
+      else if (id.startsWith('ticket:')) await handleTicketButton(interaction).catch(() => undefined);
+      else if (id.startsWith('gw:')) await handleGiveawayButton(interaction).catch(() => undefined);
+      else if (id.startsWith('sg:')) await handleSuggestionVote(interaction).catch(() => undefined);
       return;
     }
 
@@ -41,13 +99,12 @@ module.exports = {
       logger.warning(`Unknown command: ${interaction.commandName}`);
       return;
     }
-
     try {
       await command.execute(interaction);
       logger.info(`Command executed: /${interaction.commandName} by ${interaction.user.tag}`);
     } catch (error) {
       logger.error(`Error in command ${interaction.commandName}: ${error}`);
-      const payload = { content: '❌ صار خطأ أثناء تنفيذ الأمر!', flags: MessageFlags.Ephemeral } as const;
+      const payload = { content: '❌ صار خطأ أثناء تنفيذ الأمر!', ...EPH };
       if (interaction.replied || interaction.deferred) await interaction.followUp(payload).catch(() => undefined);
       else await interaction.reply(payload).catch(() => undefined);
     }

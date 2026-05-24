@@ -7,6 +7,7 @@ import { checkContent, checkSpam, VIOLATION_LABELS } from '../automod/checker';
 import { awardMessageXp } from '../leveling';
 import { bump } from '../stats';
 import { logEvent } from '../logging';
+import { handleAfk, handleCounting, handleHighlights, maybeSticky } from '../community-handlers';
 import { banUser, kickUser, muteUser, warnUser, type ActionDeps, type GuildLike } from '../moderation/actions';
 
 module.exports = {
@@ -65,7 +66,13 @@ module.exports = {
       }
     }
 
-    // 2) Auto-responder
+    // 2) Community handlers (AFK, counting, highlights, sticky) — each is independently guarded.
+    await handleAfk(message).catch(() => undefined);
+    if (await handleCounting(message).catch(() => false)) return; // counting messages are self-contained
+    await handleHighlights(message).catch(() => undefined);
+    await maybeSticky(message).catch(() => undefined);
+
+    // 3) Auto-responder
     try {
       const responses = await getAutoResponses(guildId);
       if (responses.length) {

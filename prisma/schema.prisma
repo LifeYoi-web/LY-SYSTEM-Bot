@@ -156,3 +156,199 @@ model ScheduledMessage {
   @@index([guildId])
   @@index([enabled, runAt])
 }
+
+// ---- Tickets ----
+model TicketConfig {
+  guildId       String  @id
+  enabled       Boolean @default(false)
+  categoryId    String?
+  supportRoleId String?
+  openMessage   String?
+  counter       Int     @default(0)
+}
+
+model Ticket {
+  id        String    @id @default(cuid())
+  guildId   String
+  channelId String
+  userId    String
+  number    Int
+  status    String    @default("open") // open | closed
+  createdAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  @@index([guildId, status])
+}
+
+// ---- Giveaways ----
+model Giveaway {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String
+  messageId   String?
+  prize       String
+  winnerCount Int      @default(1)
+  endsAt      DateTime
+  ended       Boolean  @default(false)
+  entrants    String[] @default([])
+  winners     String[] @default([])
+  createdAt   DateTime @default(now())
+
+  @@index([guildId])
+  @@index([ended, endsAt])
+}
+
+// ---- Starboard ----
+model StarboardConfig {
+  guildId   String  @id
+  enabled   Boolean @default(false)
+  channelId String?
+  threshold Int     @default(3)
+  emoji     String  @default("⭐")
+}
+
+model StarboardEntry {
+  id               String @id @default(cuid())
+  guildId          String
+  sourceMessageId  String
+  starboardMessageId String
+  count            Int    @default(0)
+
+  @@unique([guildId, sourceMessageId])
+}
+
+// ---- Suggestions ----
+model SuggestionConfig {
+  guildId   String  @id
+  enabled   Boolean @default(false)
+  channelId String?
+}
+
+model Suggestion {
+  id        String   @id @default(cuid())
+  guildId   String
+  channelId String
+  messageId String?
+  authorId  String
+  content   String
+  status    String   @default("pending") // pending | approved | denied
+  up        Int      @default(0)
+  down      Int      @default(0)
+  voters    String[] @default([])
+  createdAt DateTime @default(now())
+
+  @@index([guildId, status])
+}
+
+// ---- Reminders ----
+model Reminder {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  channelId String
+  content   String
+  remindAt  DateTime
+  createdAt DateTime @default(now())
+
+  @@index([remindAt])
+  @@index([guildId, userId])
+}
+
+// ---- Birthdays ----
+model BirthdayConfig {
+  guildId   String  @id
+  enabled   Boolean @default(false)
+  channelId String?
+  roleId    String?
+}
+
+model Birthday {
+  guildId String
+  userId  String
+  day     Int
+  month   Int
+
+  @@id([guildId, userId])
+  @@index([guildId, month, day])
+}
+
+// ---- AFK ----
+model Afk {
+  guildId String
+  userId  String
+  reason  String
+  since   DateTime @default(now())
+
+  @@id([guildId, userId])
+}
+
+// ---- Keyword highlights ----
+model Highlight {
+  id      String @id @default(cuid())
+  guildId String
+  userId  String
+  word    String
+
+  @@index([guildId])
+  @@unique([guildId, userId, word])
+}
+
+// ---- Tags (custom snippets) ----
+model Tag {
+  id        String   @id @default(cuid())
+  guildId   String
+  name      String
+  content   String
+  uses      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, name])
+  @@index([guildId])
+}
+
+// ---- Sticky messages ----
+model StickyMessage {
+  guildId       String
+  channelId     String
+  content       String
+  lastMessageId String?
+  enabled       Boolean @default(true)
+
+  @@id([guildId, channelId])
+}
+
+// ---- Counting game ----
+model CountingConfig {
+  guildId    String  @id
+  enabled    Boolean @default(false)
+  channelId  String?
+  current    Int     @default(0)
+  best       Int     @default(0)
+  lastUserId String?
+}
+
+// ---- Stat-counter channels ----
+model StatCounter {
+  id        String @id @default(cuid())
+  guildId   String
+  channelId String
+  type      String // members | humans | bots | roles | channels | boosts
+  template  String @default("{name}: {count}")
+
+  @@index([guildId])
+}
+
+// ---- Member profiles (bio) ----
+model Profile {
+  guildId String
+  userId  String
+  bio     String?
+
+  @@id([guildId, userId])
+}
+
+// ---- Report relay ----
+model ReportConfig {
+  guildId   String  @id
+  channelId String?
+}

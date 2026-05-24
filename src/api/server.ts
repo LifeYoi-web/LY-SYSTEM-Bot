@@ -21,6 +21,17 @@ import { createRolePanelsRouter } from './routes/rolepanels';
 import { createAnnounceRouter } from './routes/announce';
 import { createAutoRespondersRouter } from './routes/autoresponders';
 import { createScheduledRouter } from './routes/scheduled';
+import { createTicketsRouter } from './routes/tickets';
+import { createGiveawaysRouter } from './routes/giveaways';
+import { createStarboardRouter } from './routes/starboard';
+import { createSuggestionsRouter } from './routes/suggestions';
+import { createBirthdaysRouter } from './routes/birthdays';
+import { createTagsRouter } from './routes/tags';
+import { createStickyRouter } from './routes/sticky';
+import { createCountingRouter } from './routes/counting';
+import { createStatCountersRouter } from './routes/statcounters';
+import { createRemindersRouter } from './routes/reminders';
+import { createReportRouter } from './routes/report';
 import { requireStaff } from './middleware/requireStaff';
 import { rateLimit } from './middleware/rateLimit';
 
@@ -87,6 +98,17 @@ export function createApp(deps: ApiDeps): Express {
   app.use('/api/announce', requireStaff(), rateLimit({ windowMs: 60_000, max: 20 }), createAnnounceRouter(deps));
   app.use('/api/autoresponders', requireStaff(), createAutoRespondersRouter(deps));
   app.use('/api/scheduled', requireStaff(), createScheduledRouter(deps));
+  app.use('/api/tickets', requireStaff(), createTicketsRouter(deps));
+  app.use('/api/giveaways', requireStaff(), createGiveawaysRouter(deps));
+  app.use('/api/starboard', requireStaff(), createStarboardRouter(deps));
+  app.use('/api/suggestions', requireStaff(), createSuggestionsRouter(deps));
+  app.use('/api/birthdays', requireStaff(), createBirthdaysRouter(deps));
+  app.use('/api/tags', requireStaff(), createTagsRouter(deps));
+  app.use('/api/sticky', requireStaff(), createStickyRouter(deps));
+  app.use('/api/counting', requireStaff(), createCountingRouter(deps));
+  app.use('/api/statcounters', requireStaff(), createStatCountersRouter(deps));
+  app.use('/api/reminders', requireStaff(), createRemindersRouter(deps));
+  app.use('/api/report', requireStaff(), createReportRouter(deps));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));

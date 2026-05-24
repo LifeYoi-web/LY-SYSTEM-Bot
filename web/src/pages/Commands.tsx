@@ -47,6 +47,34 @@ const GROUPS: { title: string; icon: IconName; items: Cmd[] }[] = [
       { name: '/leaderboard', desc: 'أفضل ١٠ أعضاء', icon: 'crown' },
     ],
   },
+  {
+    title: 'المجتمع',
+    icon: 'users',
+    items: [
+      { name: '/suggest', desc: 'إرسال اقتراح للسيرفر', icon: 'sparkles' },
+      { name: '/remind', desc: 'تذكير بعد مدة', icon: 'clock' },
+      { name: '/reminders', desc: 'عرض تذكيراتك', icon: 'clock' },
+      { name: '/birthday', desc: 'تعيين تاريخ ميلادك', icon: 'calendar' },
+      { name: '/afk', desc: 'وضع حالة بعيد', icon: 'eye' },
+      { name: '/highlight', desc: 'تنبيه عند ذكر كلمة', icon: 'bell' },
+      { name: '/tag', desc: 'عرض محتوى محفوظ', icon: 'hash' },
+      { name: '/tags', desc: 'قائمة التاجات', icon: 'hash' },
+      { name: '/profile', desc: 'ملف عضو', icon: 'users' },
+      { name: '/setbio', desc: 'تعيين نبذتك', icon: 'message' },
+      { name: '/report', desc: 'إبلاغ الإدارة', icon: 'alert-triangle' },
+    ],
+  },
+  {
+    title: 'ترفيه',
+    icon: 'zap',
+    items: [
+      { name: '/8ball', desc: 'الكرة السحرية', icon: 'sparkles' },
+      { name: '/dice', desc: 'رمي نرد', icon: 'activity' },
+      { name: '/coinflip', desc: 'رمي عملة', icon: 'refresh-cw' },
+      { name: '/choose', desc: 'اختيار عشوائي', icon: 'shield' },
+      { name: '/rps', desc: 'حجر ورقة مقص', icon: 'zap' },
+    ],
+  },
 ];
 
 export function Commands() {

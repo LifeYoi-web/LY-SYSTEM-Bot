@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 
 export const client = new Client({
   intents: [
@@ -7,5 +7,9 @@ export const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.GuildMessageReactions, // starboard
   ],
+  // Partials let us receive reaction/message events on objects that aren't cached
+  // (e.g. starboard reactions on older messages).
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });

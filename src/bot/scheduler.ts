@@ -2,6 +2,7 @@ import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import { liftCase, type ActionDeps, type GuildLike } from './moderation/actions';
 import { flushStats } from './stats';
+import { endDueGiveaways, fireDueReminders, announceBirthdays, refreshStatCounters } from './scheduler-tasks';
 import { logger } from '../shared/logger';
 
 export async function liftExpiredCases(deps: ActionDeps): Promise<number> {
@@ -50,6 +51,9 @@ export async function postDueScheduled(deps: SchedulerDeps, now: Date = new Date
 }
 
 export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS.Timeout {
+  let lastStatRefresh = 0;
+  let lastBirthdayKey = '';
+
   const tick = async () => {
     // Flush buffered activity counters for every guild the bot can see.
     const memberCounts: Record<string, number> = {};
@@ -61,6 +65,22 @@ export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS
       return 0;
     });
     if (posted > 0) logger.info(`Scheduler posted ${posted} scheduled message(s)`);
+
+    // Time-based community tasks.
+    await endDueGiveaways(deps).catch((err) => logger.error(`Giveaway end error: ${err}`));
+    await fireDueReminders(deps).catch((err) => logger.error(`Reminder error: ${err}`));
+
+    // Stat-counter channels: throttled to ~10 min (Discord rate-limits channel renames).
+    if (Date.now() - lastStatRefresh > 600_000) {
+      lastStatRefresh = Date.now();
+      await refreshStatCounters(deps).catch((err) => logger.error(`StatCounter error: ${err}`));
+    }
+    // Birthdays: once per UTC day (re-announces on restart, which is acceptable).
+    const dayKey = new Date().toISOString().slice(0, 10);
+    if (dayKey !== lastBirthdayKey) {
+      lastBirthdayKey = dayKey;
+      await announceBirthdays(deps).catch((err) => logger.error(`Birthday error: ${err}`));
+    }
 
     const guild = deps.client.guilds.cache.get(deps.guildId);
     if (!guild) return;
