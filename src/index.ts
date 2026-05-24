@@ -6,6 +6,7 @@ import { loadCommands, registerCommands, loadEvents } from './bot/loader';
 import { prisma } from './db/prisma';
 import { ensureGuildSettings } from './db/settingsCache';
 import { startApiServer } from './api/server';
+import { startScheduler } from './bot/scheduler';
 
 async function main() {
   const config = loadConfig();
@@ -18,6 +19,7 @@ async function main() {
   await ensureGuildSettings(config.guildId);
 
   startApiServer({ client, prisma, config });
+  startScheduler({ client, prisma, guildId: config.guildId });
 }
 
 main().catch((err) => {

@@ -1,16 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { upsert } = vi.hoisted(() => ({ upsert: vi.fn() }));
+const { upsert, update } = vi.hoisted(() => ({ upsert: vi.fn(), update: vi.fn() }));
 vi.mock('../src/db/prisma', () => ({
-  prisma: { guildSettings: { upsert } },
+  prisma: { guildSettings: { upsert, update } },
 }));
 
-import { ensureGuildSettings, getSettings, invalidateSettings } from '../src/db/settingsCache';
+import {
+  ensureGuildSettings,
+  getSettings,
+  invalidateSettings,
+  updateSettings,
+} from '../src/db/settingsCache';
 
 const row = { guildId: 'g1', logChannelId: null, staffRoleIds: [], createdAt: new Date(), updatedAt: new Date() };
 
 beforeEach(() => {
   upsert.mockReset().mockResolvedValue(row);
+  update.mockReset().mockResolvedValue({ ...row, logChannelId: 'c9' });
   invalidateSettings('g1');
 });
 
@@ -32,5 +38,15 @@ describe('settingsCache', () => {
     invalidateSettings('g1');
     await getSettings('g1');
     expect(upsert).toHaveBeenCalledTimes(2);
+  });
+
+  it('updateSettings writes through and refreshes the cache', async () => {
+    await ensureGuildSettings('g1');
+    const updated = await updateSettings('g1', { logChannelId: 'c9' });
+    expect(updated.logChannelId).toBe('c9');
+    expect(update).toHaveBeenCalledWith({ where: { guildId: 'g1' }, data: { logChannelId: 'c9' } });
+    const cached = await getSettings('g1');
+    expect(cached.logChannelId).toBe('c9');
+    expect(upsert).toHaveBeenCalledTimes(1);
   });
 });

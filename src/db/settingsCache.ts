@@ -22,3 +22,12 @@ export async function getSettings(guildId: string): Promise<GuildSettings> {
 export function invalidateSettings(guildId: string): void {
   cache.delete(guildId);
 }
+
+export async function updateSettings(
+  guildId: string,
+  data: Partial<Pick<GuildSettings, 'logChannelId' | 'staffRoleIds'>>,
+): Promise<GuildSettings> {
+  const settings = await prisma.guildSettings.update({ where: { guildId }, data });
+  cache.set(guildId, settings);
+  return settings;
+}

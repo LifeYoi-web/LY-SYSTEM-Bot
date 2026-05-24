@@ -1,14 +1,21 @@
+const messages: Record<string, string> = {
+  notmember: 'لست عضوًا في السيرفر.',
+  forbidden: 'ما عندك صلاحية الدخول (الإداريين فقط).',
+  oauth: 'تعذّر تسجيل الدخول، حاول مرة ثانية.',
+  nocode: 'تعذّر تسجيل الدخول، حاول مرة ثانية.',
+};
+
 export function Login() {
+  const error = new URLSearchParams(window.location.search).get('error');
   return (
-    <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', background: '#1a1a1a', color: '#fff' }}>
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ color: '#f57c00' }}>LY-SYSTEM Dashboard</h1>
-        <a
-          href="/api/auth/login"
-          style={{ display: 'inline-block', marginTop: 16, padding: '12px 24px', background: '#f57c00', color: '#fff', borderRadius: 8, textDecoration: 'none' }}
-        >
+    <div className="center-screen">
+      <div className="login-card">
+        <div className="login-logo">LIFEYOI</div>
+        <p className="login-sub">لوحة تحكم سيرفر ديسكورد</p>
+        <a className="btn btn-primary" style={{ width: '100%' }} href="/api/auth/login">
           تسجيل الدخول عبر Discord
         </a>
+        {error && <p className="err-text">{messages[error] ?? 'حدث خطأ، حاول مرة ثانية.'}</p>}
       </div>
     </div>
   );

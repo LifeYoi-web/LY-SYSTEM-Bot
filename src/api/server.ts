@@ -9,6 +9,9 @@ import type { AppConfig } from '../shared/config';
 import { logger } from '../shared/logger';
 import { createAuthRouter } from './routes/auth';
 import { createOverviewRouter } from './routes/overview';
+import { createMembersRouter } from './routes/members';
+import { createModerationRouter } from './routes/moderation';
+import { createSettingsRouter } from './routes/settings';
 import { requireStaff } from './middleware/requireStaff';
 
 export interface ApiDeps {
@@ -44,6 +47,9 @@ export function createApp(deps: ApiDeps): Express {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', createAuthRouter(deps));
   app.use('/api/overview', requireStaff(), createOverviewRouter(deps));
+  app.use('/api/members', requireStaff(), createMembersRouter(deps));
+  app.use('/api/moderation', requireStaff(), createModerationRouter(deps));
+  app.use('/api/settings', requireStaff(), createSettingsRouter({ config: deps.config }));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));
