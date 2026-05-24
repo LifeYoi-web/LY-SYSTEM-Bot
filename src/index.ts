@@ -12,7 +12,7 @@ async function main() {
   const config = loadConfig();
 
   const commands = loadCommands();
-  await registerCommands(commands, config.discordToken, config.clientId);
+  await registerCommands(commands, config.discordToken, config.clientId, config.guildId);
   loadEvents(client, commands);
 
   await client.login(config.discordToken);

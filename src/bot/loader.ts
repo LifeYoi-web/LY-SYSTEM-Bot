@@ -26,12 +26,21 @@ export async function registerCommands(
   commands: Collection<string, Command>,
   token: string,
   clientId: string,
+  guildId?: string,
 ): Promise<void> {
   const rest = new REST({ version: '10' }).setToken(token);
   const body = Array.from(commands.values()).map((c) => c.data.toJSON());
   logger.info('Registering commands with Discord...');
-  await rest.put(Routes.applicationCommands(clientId), { body });
-  logger.success('All commands registered successfully!');
+  if (guildId) {
+    // Guild-scoped registration updates INSTANTLY (global commands take up to ~1h to appear).
+    await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body });
+    // Clear any stale GLOBAL commands left by earlier deploys so they don't show as duplicates.
+    await rest.put(Routes.applicationCommands(clientId), { body: [] }).catch(() => undefined);
+    logger.success(`Registered ${body.length} command(s) to guild ${guildId} (instant).`);
+  } else {
+    await rest.put(Routes.applicationCommands(clientId), { body });
+    logger.success(`Registered ${body.length} global command(s) (may take up to ~1h to appear).`);
+  }
 }
 
 export function loadEvents(client: Client, commands: Collection<string, Command>): void {
