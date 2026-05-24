@@ -8,5 +8,6 @@ declare module 'express-session' {
       avatar: string | null;
       authorized: boolean;
     };
+    oauthState?: string;
   }
 }

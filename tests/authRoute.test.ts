@@ -25,4 +25,17 @@ describe('auth route', () => {
   it('401s /me when logged out', async () => {
     await request(app()).get('/api/auth/me').expect(401);
   });
+
+  it('rejects callback with mismatched state', async () => {
+    const a = express();
+    a.use((req, _res, next) => { (req as any).session = { oauthState: 'right' }; next(); });
+    a.use('/api/auth', createAuthRouter({ client: {} as any, config }));
+    const res = await request(a).get('/api/auth/callback?code=x&state=wrong').expect(302);
+    expect(res.headers.location).toContain('error=badstate');
+  });
+
+  it('rejects callback with no state', async () => {
+    const res = await request(app()).get('/api/auth/callback?code=x').expect(302);
+    expect(res.headers.location).toContain('error=badstate');
+  });
 });
