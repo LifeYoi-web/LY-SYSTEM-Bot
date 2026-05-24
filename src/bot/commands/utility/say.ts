@@ -3,6 +3,7 @@ import {
   PermissionFlagsBits,
   EmbedBuilder,
   ChannelType,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type TextChannel,
 } from 'discord.js';
@@ -24,7 +25,7 @@ module.exports = {
     const asEmbed = interaction.options.getBoolean('embed') ?? false;
     const channel = (interaction.options.getChannel('channel') ?? interaction.channel) as TextChannel | null;
     if (!channel?.isTextBased?.()) {
-      await interaction.reply({ content: '❌ قناة غير صالحة.', ephemeral: true });
+      await interaction.reply({ content: '❌ قناة غير صالحة.', flags: MessageFlags.Ephemeral });
       return;
     }
     try {
@@ -38,9 +39,9 @@ module.exports = {
       } else {
         await channel.send({ content: message, allowedMentions });
       }
-      await interaction.reply({ content: `✅ تم الإرسال إلى ${channel}.`, ephemeral: true });
+      await interaction.reply({ content: `✅ تم الإرسال إلى ${channel}.`, flags: MessageFlags.Ephemeral });
     } catch {
-      await interaction.reply({ content: '❌ تعذّر الإرسال — تأكد من صلاحيات البوت في تلك القناة.', ephemeral: true });
+      await interaction.reply({ content: '❌ تعذّر الإرسال — تأكد من صلاحيات البوت في تلك القناة.', flags: MessageFlags.Ephemeral });
     }
   },
 };

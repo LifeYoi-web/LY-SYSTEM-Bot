@@ -2,6 +2,7 @@ import {
   SlashCommandBuilder,
   PermissionFlagsBits,
   EmbedBuilder,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type TextChannel,
 } from 'discord.js';
@@ -18,7 +19,7 @@ module.exports = {
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.inGuild() || !interaction.channel?.isTextBased()) return;
     const amount = interaction.options.getInteger('amount', true);
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     try {
       const deleted = await (interaction.channel as TextChannel).bulkDelete(amount, true);
       await interaction.editReply({

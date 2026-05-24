@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLeveling, useUpdateLeveling, useLeaderboard, useAddReward, useDeleteReward } from '../lib/hooks';
 import type { LevelConfig } from '../lib/types';
 import { Icon } from '../lib/icons';
-import { Switch, SkeletonRows, EmptyState, toast, fmt } from '../components/ui';
+import { Switch, SkeletonRows, EmptyState, toast, fmt, clampInt } from '../components/ui';
 import { Select, useChannelOptions, useRoleOptions } from '../components/pickers';
 
 export function Leveling() {
@@ -61,15 +61,15 @@ export function Leveling() {
             <div className="field-row">
               <div className="field">
                 <label>XP لكل رسالة</label>
-                <input className="input tnum" type="number" min={1} max={100} value={d.xpPerMessage} onChange={(e) => set('xpPerMessage', Math.max(1, Math.min(100, Number(e.target.value))))} />
+                <input className="input tnum" type="number" min={1} max={100} value={d.xpPerMessage} onChange={(e) => set('xpPerMessage', clampInt(e.target.value, 1, 100))} />
               </div>
               <div className="field">
                 <label>المضاعِف</label>
-                <input className="input tnum" type="number" min={1} max={5} value={d.multiplier} onChange={(e) => set('multiplier', Math.max(1, Math.min(5, Number(e.target.value))))} />
+                <input className="input tnum" type="number" min={1} max={5} value={d.multiplier} onChange={(e) => set('multiplier', clampInt(e.target.value, 1, 5))} />
               </div>
               <div className="field">
                 <label>التهدئة (ثوانٍ)</label>
-                <input className="input tnum" type="number" min={0} max={3600} value={d.cooldownSeconds} onChange={(e) => set('cooldownSeconds', Math.max(0, Number(e.target.value)))} />
+                <input className="input tnum" type="number" min={0} max={3600} value={d.cooldownSeconds} onChange={(e) => set('cooldownSeconds', clampInt(e.target.value, 0, 3600))} />
               </div>
             </div>
             <div className="toggle-row">
@@ -100,7 +100,7 @@ export function Leveling() {
             <div className="field-row" style={{ marginTop: 14, alignItems: 'flex-end' }}>
               <div className="field" style={{ flex: '0 0 120px' }}>
                 <label>المستوى</label>
-                <input className="input tnum" type="number" min={1} value={rwLevel} onChange={(e) => setRwLevel(Math.max(1, Number(e.target.value)))} />
+                <input className="input tnum" type="number" min={1} value={rwLevel} onChange={(e) => setRwLevel(clampInt(e.target.value, 1, 1000))} />
               </div>
               <div className="field" style={{ flex: 1 }}>
                 <label>الرتبة</label>

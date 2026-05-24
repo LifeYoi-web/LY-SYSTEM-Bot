@@ -4,6 +4,12 @@ import { Icon, type IconName } from '../lib/icons';
 /* ----------------------------------------------------------------- format */
 export const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString('en-US');
 
+/** NaN-safe integer clamp for number <input> handlers (empty/invalid → min). */
+export const clampInt = (raw: unknown, min: number, max: number): number => {
+  const n = Math.round(Number(raw));
+  return Number.isFinite(n) ? Math.min(Math.max(n, min), max) : min;
+};
+
 const rtf = new Intl.RelativeTimeFormat('ar', { numeric: 'auto' });
 export function relTime(iso: string | number | Date): string {
   const d = new Date(iso).getTime();

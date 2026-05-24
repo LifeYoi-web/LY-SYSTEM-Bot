@@ -31,4 +31,13 @@ describe('stats aggregator', () => {
     expect(await flushStats({ dailyStat: { upsert } } as any)).toBe(0);
     expect(upsert).not.toHaveBeenCalled();
   });
+
+  it('re-queues counters when the DB upsert fails (no data loss)', async () => {
+    bump('g1', 'messages', 3);
+    const upsert = vi.fn().mockRejectedValueOnce(new Error('db down'));
+    const persisted = await flushStats({ dailyStat: { upsert } } as any);
+    expect(persisted).toBe(0); // nothing persisted
+    // counts merged back into the buffer for the next flush
+    expect(_peekStats().get('g1|' + new Date().toISOString().slice(0, 10))?.messages).toBe(3);
+  });
 });

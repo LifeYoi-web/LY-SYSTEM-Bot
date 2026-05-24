@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, type ChatInputCommandInteraction, type Message } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, type ChatInputCommandInteraction } from 'discord.js';
 
 const NUMBERS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
 
@@ -30,7 +30,8 @@ module.exports = {
       embed.setDescription('✅ موافق  •  ❌ غير موافق');
     }
 
-    const msg = (await interaction.reply({ embeds: [embed], fetchReply: true })) as Message;
+    await interaction.reply({ embeds: [embed] });
+    const msg = await interaction.fetchReply();
     const reactions = options.length ? NUMBERS.slice(0, options.length) : ['✅', '❌'];
     for (const r of reactions) await msg.react(r).catch(() => undefined);
   },

@@ -50,14 +50,16 @@ export function AreaChart({
   const line = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join(' ');
   const area = (vals: number[]) => `${line(vals)} L${x(n - 1)},${padT + innerH} L${x(0)},${padT + innerH} Z`;
   const step = Math.max(1, Math.ceil(n / 7));
+  // Guard against a stale hover index after the data array shrinks (e.g. range toggle).
+  const safeHover = hover != null && hover < n ? hover : null;
 
   return (
     <div className="chart" style={{ position: 'relative' }}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`رسم بياني زمني: ${series.map((s) => s.name).join('، ')}`}>
         <defs>
           <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            <stop offset="0%" stopColor={series[0]?.color ?? 'var(--accent)'} stopOpacity="0.28" />
+            <stop offset="100%" stopColor={series[0]?.color ?? 'var(--accent)'} stopOpacity="0" />
           </linearGradient>
         </defs>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
@@ -76,9 +78,9 @@ export function AreaChart({
             </text>
           ) : null,
         )}
-        {hover != null && <line x1={x(hover)} x2={x(hover)} y1={padT} y2={padT + innerH} style={{ stroke: 'var(--accent-line)' }} />}
-        {hover != null &&
-          series.map((s) => <circle key={s.name} className="dot" style={{ fill: s.color }} cx={x(hover)} cy={y(s.values[hover])} r={4} />)}
+        {safeHover != null && <line x1={x(safeHover)} x2={x(safeHover)} y1={padT} y2={padT + innerH} style={{ stroke: 'var(--accent-line)' }} />}
+        {safeHover != null &&
+          series.map((s) => <circle key={s.name} className="dot" style={{ fill: s.color }} cx={x(safeHover)} cy={y(s.values[safeHover] ?? 0)} r={4} />)}
         {labels.map((_, i) => {
           const w = innerW / Math.max(n, 1);
           return (
@@ -95,13 +97,13 @@ export function AreaChart({
           );
         })}
       </svg>
-      {hover != null && (
-        <div style={{ ...tip, left: `${(x(hover) / W) * 100}%` }}>
-          <b>{labels[hover]}</b>
+      {safeHover != null && (
+        <div style={{ ...tip, left: `${(x(safeHover) / W) * 100}%` }}>
+          <b>{labels[safeHover]}</b>
           {series.map((s) => (
             <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
               <span style={{ width: 9, height: 9, borderRadius: 2, background: s.color, display: 'inline-block' }} />
-              {s.name}: <span className="tnum">{fmt(s.values[hover])}</span>
+              {s.name}: <span className="tnum">{fmt(s.values[safeHover] ?? 0)}</span>
             </div>
           ))}
         </div>
@@ -153,7 +155,7 @@ export function BarChart({
           );
         })}
       </svg>
-      {hover != null && (
+      {hover != null && hover < data.length && (
         <div style={{ ...tip, left: `${((padX + hover * gap + gap / 2) / W) * 100}%` }}>
           <b>{data[hover].label}</b>
           <div className="tnum">{fmt(data[hover].value)}</div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAutoMod, useUpdateAutoMod } from '../lib/hooks';
 import type { AutoMod as AutoModT } from '../lib/types';
 import { Icon } from '../lib/icons';
-import { Switch, SkeletonRows, toast } from '../components/ui';
+import { Switch, SkeletonRows, toast, clampInt } from '../components/ui';
 import { ChipsInput, MultiSelect, useChannelOptions, useRoleOptions } from '../components/pickers';
 
 const ACTIONS: { v: string; label: string }[] = [
@@ -92,7 +92,7 @@ export function AutoMod() {
               min={1}
               max={50}
               value={d.maxMentions}
-              onChange={(e) => set('maxMentions', Math.max(1, Math.min(50, Number(e.target.value))))}
+              onChange={(e) => set('maxMentions', clampInt(e.target.value, 1, 50))}
             />
           </div>
           <div className="field">
@@ -115,7 +115,7 @@ export function AutoMod() {
               type="number"
               min={1}
               value={d.muteSeconds}
-              onChange={(e) => set('muteSeconds', Math.max(1, Number(e.target.value)))}
+              onChange={(e) => set('muteSeconds', clampInt(e.target.value, 1, 2_419_200))}
             />
           </div>
         )}

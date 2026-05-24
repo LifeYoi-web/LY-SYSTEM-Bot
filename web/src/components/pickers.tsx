@@ -108,7 +108,7 @@ export function ChipsInput({
   }
   return (
     <div>
-      <input className="input" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} onBlur={add} placeholder={placeholder} />
+      <input className="input" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} placeholder={placeholder} />
       {value.length > 0 && (
         <div className="chips" style={{ marginTop: 10 }}>
           {value.map((w) => (

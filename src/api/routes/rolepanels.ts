@@ -51,7 +51,8 @@ export function buildPanelMessage(panel: { title: string; description: string | 
     const row = new ActionRowBuilder<ButtonBuilder>();
     for (const r of panel.roles.slice(i, i + 5)) {
       const btn = new ButtonBuilder().setCustomId(`rr:${r.roleId}`).setLabel(r.label).setStyle((r.style ?? 2) as ButtonStyle);
-      if (r.emoji) btn.setEmoji(r.emoji);
+      // setEmoji throws on a malformed emoji string — never let one bad value block the whole panel.
+      if (r.emoji) try { btn.setEmoji(r.emoji); } catch { /* ignore invalid emoji */ }
       row.addComponents(btn);
     }
     rows.push(row);

@@ -38,22 +38,38 @@ export async function flushStats(
 ): Promise<number> {
   const entries = [...buckets.entries()];
   buckets.clear();
+  let persisted = 0;
   for (const [key, b] of entries) {
     const [guildId, date] = key.split('|');
     const memberCount = memberCounts[guildId];
-    await prisma.dailyStat.upsert({
-      where: { guildId_date: { guildId, date } },
-      create: { guildId, date, ...b, memberCount: memberCount ?? 0 },
-      update: {
-        messages: { increment: b.messages },
-        joins: { increment: b.joins },
-        leaves: { increment: b.leaves },
-        modActions: { increment: b.modActions },
-        ...(memberCount != null ? { memberCount } : {}),
-      },
-    });
+    try {
+      await prisma.dailyStat.upsert({
+        where: { guildId_date: { guildId, date } },
+        create: { guildId, date, ...b, memberCount: memberCount ?? 0 },
+        update: {
+          messages: { increment: b.messages },
+          joins: { increment: b.joins },
+          leaves: { increment: b.leaves },
+          modActions: { increment: b.modActions },
+          ...(memberCount != null ? { memberCount } : {}),
+        },
+      });
+      persisted++;
+    } catch {
+      // Persist failed (e.g. transient DB error): merge counts back so the next
+      // flush retries them instead of silently dropping the day's activity.
+      const cur = buckets.get(key);
+      if (cur) {
+        cur.messages += b.messages;
+        cur.joins += b.joins;
+        cur.leaves += b.leaves;
+        cur.modActions += b.modActions;
+      } else {
+        buckets.set(key, { ...b });
+      }
+    }
   }
-  return entries.length;
+  return persisted;
 }
 
 /** Test helpers. */
