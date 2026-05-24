@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "LY-SYSTEM Discord Bot",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "prisma generate && tsc && npm --prefix web install && npm --prefix web run build",
     "start": "prisma db push --skip-generate && node dist/index.js",

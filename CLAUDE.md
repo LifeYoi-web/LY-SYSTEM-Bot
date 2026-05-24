@@ -2,78 +2,57 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-LY-SYSTEM Bot is a Discord bot built with **discord.js v14** and **TypeScript** (compiled to CommonJS). It is deployed on **Railway** for 24/7 hosting. The codebase is intentionally minimal and bilingual: code identifiers are English, while user-facing strings (command descriptions, embed text) are Arabic.
+LY-SYSTEM is a Discord bot **and** its web control dashboard, running in a single Node process, deployed 24/7 on Railway. Stack: discord.js v14 + TypeScript (CommonJS) for the bot, Express + express-session for the API, Prisma v7 + PostgreSQL for storage, and a Vite + React SPA (in `web/`) for the dashboard UI. Code identifiers are English; user-facing strings (Discord embeds, dashboard labels) are Arabic.
 
 ## Commands
 
 ```bash
-npm install        # install dependencies
-npm run build      # compile TypeScript: src/ -> dist/  (tsc)
-npm start          # run the compiled bot: node dist/index.js
-npm run dev        # ts-node on src/index.ts  (see caveat below)
+npm install            # backend deps (repo root)
+npm run build          # prisma generate -> tsc -> install & build the web SPA (web/dist)
+npm start              # prisma db push (sync schema) -> node dist/index.js
+npm run dev            # ts-node src/index.ts  (see caveat below)
+npm test               # vitest run (all suites)
+npm run test:watch     # vitest watch
+npx vitest run tests/<name>.test.ts   # run a single test file
 ```
 
-There is **no test runner and no linter configured** — `package.json` has only `build`, `start`, and `dev`. Do not assume a `test` or `lint` script exists.
+Frontend-only (from `web/`): `npm --prefix web run dev` starts the Vite dev server on :5173 and proxies `/api` to the backend on :3000.
 
-### Build-before-run is mandatory (important gotcha)
+### Build-before-run is mandatory (gotcha)
 
-The module loaders in `src/index.ts` match `.js` files only and `require()` them relative to `__dirname`:
-
-```ts
-readdirSync(folderPath).filter(f => f.endsWith('.js'))
-```
-
-At runtime that resolves against the compiled `dist/` directory, so **commands and events are only discovered after `npm run build`**. Consequences:
-
-- **`npm run dev` does not work as a full dev mode.** Under ts-node, `__dirname` points at `src/`, which contains `.ts` files — the `.js` filter excludes them, so **zero commands and zero events load**. Worse, `registerCommands()` then PUTs an empty array to Discord, **de-registering all global slash commands**.
-- The reliable local workflow is `npm run build && npm start`. After changing any command or event, rebuild before starting.
+The bot's loader (`src/bot/loader.ts`) matches `.js` files and `require()`s them relative to `__dirname`, which resolves to the compiled `dist/bot/` tree at runtime. So **commands and events are only discovered after `npm run build`**. `npm run dev` (ts-node over `src/`) does NOT load any command/event (the `.js` filter excludes the `.ts` sources) and would de-register global commands — use `npm run build && npm start` for anything involving the live bot.
 
 ## Architecture
 
-Single entry point `src/index.ts` boots everything in one process via `main()`:
-1. `loadCommands()` — walks `dist/commands/<category>/*.js`, `require()`s each, and stores it in an in-memory `Collection` keyed by command name.
-2. `registerCommands()` — pushes all command definitions to Discord's **global** application command endpoint (`Routes.applicationCommands(clientId)`). Global registration can take up to ~1 hour to propagate to clients. This runs on **every startup**.
-3. `loadEvents()` — walks `dist/events/*.js` and wires each to the client with `client.once`/`client.on` based on its `once` flag.
-4. `client.login()`.
+Single entry point `src/index.ts` → `main()`: `loadConfig()` (validates env) → load/register/bind bot commands+events → `client.login()` → `ensureGuildSettings()` → `startApiServer()`. The bot and the Express API share ONE discord.js `Client` instance, so API routes command the live bot directly (no IPC).
 
-The bot is **stateless** — there is no database, cache, or file persistence. All data comes from live Discord API calls. Gateway intents enabled in `index.ts`: `Guilds`, `GuildMessages`, `MessageContent`, `GuildMembers`.
+- **`src/bot/`** — `client.ts` (shared Client + intents: Guilds, GuildMessages, MessageContent, GuildMembers, GuildModeration), `loader.ts` (loadCommands/registerCommands/loadEvents), `commands/<category>/*.ts`, `events/*.ts`.
+- **`src/api/`** — `server.ts` (`createApp`/`startApiServer`: helmet, session, mounts routes, serves `web/dist` + SPA fallback), `routes/{auth,overview}.ts`, `middleware/requireStaff.ts`, `auth-utils.ts` (`isStaff`), `session.d.ts` (session type augmentation).
+- **`src/db/`** — `prisma.ts` (PrismaClient singleton via the pg driver adapter), `settingsCache.ts` (in-memory cache of `GuildSettings`).
+- **`src/shared/`** — `config.ts` (`loadConfig`/`AppConfig`), `logger.ts`.
+- **`web/`** — Vite + React SPA (its own package.json). Built to `web/dist`, served as static files by Express (same origin → session cookies work).
+- **`prisma/schema.prisma`** + **`prisma.config.ts`** — Prisma v7. The DB URL lives in `prisma.config.ts` (driver-adapter pattern), NOT in `schema.prisma`. Models: `GuildSettings`, `AutoModConfig`, `ModerationCase`, `LogEntry`.
+
+### Auth & authorization
+
+The dashboard authenticates via **Discord OAuth2** (`/api/auth/login` → `/api/auth/callback`) with a CSRF `state` check and session regeneration on login. Access is restricted to **staff of the one configured guild** (`GUILD_ID`): the callback fetches the member through the bot's Client and checks `isStaff` (Administrator / Manage Guild, or a configured staff role). Sessions are stored in PostgreSQL (connect-pg-simple); cookies are httpOnly + sameSite=lax + secure in production. All `/api/*` routes except `/api/auth/*` and `/api/health` go through `requireStaff`.
 
 ### Module contracts (CommonJS, not ES exports)
 
-Even though source is `.ts`, modules use `module.exports = {...}` because the loader `require()`s the compiled CommonJS output.
+Commands and events use `module.exports = {...}` because the loader `require()`s the compiled output.
+- **Command** (`src/bot/commands/<category>/<name>.ts`): `module.exports = { data: SlashCommandBuilder, async execute(interaction) {} }`.
+- **Event** (`src/bot/events/<name>.ts`): `module.exports = { name, once, async execute(...args, commands) {} }`. Each handler receives the shared `commands` Collection as its last argument.
 
-**Command** — one file per command in `src/commands/<category>/`:
-```ts
-module.exports = {
-  data: new SlashCommandBuilder().setName('...').setDescription('...'),
-  async execute(interaction: ChatInputCommandInteraction) { /* ... */ },
-};
-```
-
-**Event** — one file per event in `src/events/`:
-```ts
-module.exports = {
-  name: 'eventName',   // a discord.js client event
-  once: false,         // true => client.once, false => client.on
-  async execute(...args, commands) { /* ... */ },
-};
-```
-Every event handler receives the shared `commands` Collection as its **last** argument (see `loadEvents()` in `index.ts`). `interactionCreate` uses this to look up and dispatch slash commands; it also owns the central try/catch that replies with an ephemeral error message when a command throws.
-
-### Adding a command
-
-Create `src/commands/<category>/<name>.ts` following the command contract above, then `npm run build && npm start`. New categories are just new sub-folders under `src/commands/` — the loader picks them up automatically; no central registry to edit.
+Add a command by dropping a file in `src/bot/commands/<category>/`, then `npm run build` — the loader picks it up automatically.
 
 ## Conventions
 
-- **Logging:** use the `logger` from `src/utils/logger.ts` (`logger.info/success/warning/error`) rather than `console.*`. It prints emoji-prefixed, timestamped lines.
-- **Embeds / branding:** user-facing replies are `EmbedBuilder` embeds using the LY brand orange `0xf57c00` and a `LY-SYSTEM Bot` footer (see `src/commands/general/ping.ts`).
-- **Language:** keep code/identifiers in English; write command descriptions and reply text in Arabic to match existing commands.
+- **Tests:** Vitest. Pure logic and API routes are unit/integration tested with Prisma and the discord.js Client mocked/faked — tests need no real database or Discord connection. Follow TDD for new logic; inject dependencies (`deps = { client, prisma, config, sessionStore? }`) so code stays testable.
+- **Logging:** use `logger` from `src/shared/logger.ts`, not `console`.
+- **Branding:** embeds and dashboard use LY orange `#f57c00`; keep code English, UI text Arabic.
 
 ## Configuration & Deployment
 
-Secrets come from `.env` (loaded via `import 'dotenv/config'` at the top of `index.ts`). Required variables:
-- `DISCORD_TOKEN` — bot token (secret; never commit)
-- `CLIENT_ID` — Discord application ID (used for command registration)
+Env vars (see `.env.example`, loaded via `dotenv`): `DISCORD_TOKEN`, `CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `GUILD_ID`, `DATABASE_URL`, `DASHBOARD_URL`, `OAUTH_REDIRECT_URI`, `PORT`. `loadConfig()` throws and the process exits if any required var is missing.
 
-Deployment is configured in `railway.json` (NIXPACKS builder): build = `npm install && npm run build`, start = `npm start`, restart on failure (max 5 retries). Set `DISCORD_TOKEN` and `CLIENT_ID` as Railway variables.
+Deployed on Railway (`railway.json`, NIXPACKS): build = `npm install && npm run build`, start = `npm start`. Requires a PostgreSQL plugin (provides `DATABASE_URL`) and the OAuth `redirect_uri` registered in the Discord Developer Portal. `GuildMembers` is a privileged intent and must be enabled in the Dev Portal.

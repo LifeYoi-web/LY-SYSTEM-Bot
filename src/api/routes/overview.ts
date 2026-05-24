@@ -15,10 +15,12 @@ export function createOverviewRouter(deps: OverviewDeps): Router {
       res.status(503).json({ error: 'guild not available' });
       return;
     }
-    const onlineCount = guild.members.cache.filter(
-      (m) => m.presence != null && m.presence.status !== 'offline',
-    ).size;
-    res.json({ name: guild.name, memberCount: guild.memberCount, onlineCount, recentLogs: [] });
+    res.json({
+      name: guild.name,
+      memberCount: guild.memberCount,
+      channelCount: guild.channels.cache.size,
+      recentLogs: [],
+    });
   });
   return router;
 }

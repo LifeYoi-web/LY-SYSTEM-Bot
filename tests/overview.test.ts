@@ -7,7 +7,7 @@ function fakeDeps() {
   const guild = {
     name: 'My Server',
     memberCount: 42,
-    members: { cache: { filter: () => ({ size: 7 }) } },
+    channels: { cache: { size: 12 } },
   };
   return {
     config: { guildId: 'g1' },
@@ -20,7 +20,7 @@ describe('overview route', () => {
     const app = express();
     app.use('/api/overview', createOverviewRouter(fakeDeps()));
     const res = await request(app).get('/api/overview').expect(200);
-    expect(res.body).toMatchObject({ name: 'My Server', memberCount: 42, onlineCount: 7, recentLogs: [] });
+    expect(res.body).toMatchObject({ name: 'My Server', memberCount: 42, channelCount: 12, recentLogs: [] });
   });
 
   it('503s when the guild is unavailable', async () => {
