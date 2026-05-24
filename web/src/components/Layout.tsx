@@ -32,8 +32,18 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: 'التفاعل',
+    items: [
+      { to: '/dashboard/leveling', label: 'المستويات', icon: 'sparkles' },
+      { to: '/dashboard/roles', label: 'رتب الأزرار', icon: 'at-sign' },
+      { to: '/dashboard/autoresponder', label: 'الردود التلقائية', icon: 'message' },
+    ],
+  },
+  {
     title: 'الإعداد',
     items: [
+      { to: '/dashboard/announce', label: 'الإعلانات', icon: 'megaphone' },
+      { to: '/dashboard/scheduled', label: 'الرسائل المجدولة', icon: 'clock' },
       { to: '/dashboard/welcome', label: 'الترحيب', icon: 'smile' },
       { to: '/dashboard/commands', label: 'الأوامر', icon: 'terminal' },
       { to: '/dashboard/settings', label: 'الإعدادات', icon: 'settings' },
@@ -48,6 +58,11 @@ const TITLES: Record<string, string> = {
   '/dashboard/cases': 'سجل العقوبات',
   '/dashboard/automod': 'الحماية التلقائية',
   '/dashboard/logs': 'سجلّات الأحداث',
+  '/dashboard/leveling': 'نظام المستويات',
+  '/dashboard/roles': 'رتب الأزرار',
+  '/dashboard/autoresponder': 'الردود التلقائية',
+  '/dashboard/announce': 'الإعلانات',
+  '/dashboard/scheduled': 'الرسائل المجدولة',
   '/dashboard/welcome': 'رسائل الترحيب',
   '/dashboard/commands': 'أوامر البوت',
   '/dashboard/settings': 'الإعدادات',

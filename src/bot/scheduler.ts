@@ -20,12 +20,47 @@ export interface SchedulerDeps {
   guildId: string;
 }
 
+/** Next fire time for a repeating schedule, or null for a one-off. Skips past missed runs. */
+export function computeNextRun(runAt: Date, repeat: string, now: Date = new Date()): Date | null {
+  if (repeat !== 'daily' && repeat !== 'weekly') return null;
+  const stepDays = repeat === 'weekly' ? 7 : 1;
+  const next = new Date(runAt);
+  do {
+    next.setUTCDate(next.getUTCDate() + stepDays);
+  } while (next <= now);
+  return next;
+}
+
+export async function postDueScheduled(deps: SchedulerDeps, now: Date = new Date()): Promise<number> {
+  const due = await deps.prisma.scheduledMessage.findMany({
+    where: { guildId: deps.guildId, enabled: true, runAt: { lte: now } },
+  });
+  for (const m of due) {
+    const channel = deps.client.channels.cache.get(m.channelId) as
+      | { send?: (payload: unknown) => Promise<unknown> }
+      | undefined;
+    await channel?.send?.({ content: m.content, allowedMentions: { parse: ['users', 'roles'] } }).catch(() => undefined);
+    const next = computeNextRun(m.runAt, m.repeat, now);
+    await deps.prisma.scheduledMessage.update({
+      where: { id: m.id },
+      data: next ? { runAt: next, lastRunAt: now } : { enabled: false, lastRunAt: now },
+    });
+  }
+  return due.length;
+}
+
 export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS.Timeout {
   const tick = async () => {
     // Flush buffered activity counters for every guild the bot can see.
     const memberCounts: Record<string, number> = {};
     for (const g of deps.client.guilds.cache.values()) memberCounts[g.id] = g.memberCount;
     await flushStats(deps.prisma, memberCounts).catch((err) => logger.error(`Stats flush error: ${err}`));
+
+    const posted = await postDueScheduled(deps).catch((err) => {
+      logger.error(`Scheduled post error: ${err}`);
+      return 0;
+    });
+    if (posted > 0) logger.info(`Scheduler posted ${posted} scheduled message(s)`);
 
     const guild = deps.client.guilds.cache.get(deps.guildId);
     if (!guild) return;

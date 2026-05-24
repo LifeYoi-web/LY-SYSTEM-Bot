@@ -14,6 +14,11 @@ import { Logs } from './pages/Logs';
 import { Welcome } from './pages/Welcome';
 import { Commands } from './pages/Commands';
 import { Settings } from './pages/Settings';
+import { Leveling } from './pages/Leveling';
+import { Roles } from './pages/Roles';
+import { Announce } from './pages/Announce';
+import { AutoResponder } from './pages/AutoResponder';
+import { Scheduled } from './pages/Scheduled';
 
 function Guarded({ children }: { children: ReactNode }) {
   const { data, isLoading, isError } = useMe();
@@ -42,6 +47,11 @@ export default function App() {
           <Route path="cases" element={<Cases />} />
           <Route path="automod" element={<AutoMod />} />
           <Route path="logs" element={<Logs />} />
+          <Route path="leveling" element={<Leveling />} />
+          <Route path="roles" element={<Roles />} />
+          <Route path="autoresponder" element={<AutoResponder />} />
+          <Route path="announce" element={<Announce />} />
+          <Route path="scheduled" element={<Scheduled />} />
           <Route path="welcome" element={<Welcome />} />
           <Route path="commands" element={<Commands />} />
           <Route path="settings" element={<Settings />} />

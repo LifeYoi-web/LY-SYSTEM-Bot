@@ -80,3 +80,79 @@ model DailyStat {
   @@unique([guildId, date])
   @@index([guildId, date])
 }
+
+// ---- Leveling / XP ----
+model LevelConfig {
+  guildId         String  @id
+  enabled         Boolean @default(false)
+  xpPerMessage    Int     @default(18)
+  cooldownSeconds Int     @default(60)
+  multiplier      Int     @default(1)
+  levelUpEnabled  Boolean @default(true)
+  levelUpChannelId String?
+  levelUpMessage  String? // {user} {level}
+  stackRewards    Boolean @default(false)
+}
+
+model LevelRoleReward {
+  id      String @id @default(cuid())
+  guildId String
+  level   Int
+  roleId  String
+
+  @@unique([guildId, level])
+  @@index([guildId])
+}
+
+model MemberLevel {
+  guildId       String
+  userId        String
+  xp            Int      @default(0)
+  level         Int      @default(0)
+  lastMessageAt DateTime @default(now())
+
+  @@id([guildId, userId])
+  @@index([guildId, xp])
+}
+
+// ---- Button role panels ----
+model RolePanel {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String?
+  messageId   String?
+  title       String
+  description String?
+  roles       Json     @default("[]") // [{ roleId, label, emoji?, style? }]
+  createdAt   DateTime @default(now())
+
+  @@index([guildId])
+}
+
+// ---- Auto-responder ----
+model AutoResponse {
+  id        String  @id @default(cuid())
+  guildId   String
+  trigger   String
+  matchType String  @default("contains") // contains | exact | startswith
+  reply     String
+  enabled   Boolean @default(true)
+
+  @@index([guildId])
+}
+
+// ---- Scheduled messages ----
+model ScheduledMessage {
+  id        String   @id @default(cuid())
+  guildId   String
+  channelId String
+  content   String
+  runAt     DateTime
+  repeat    String   @default("none") // none | daily | weekly
+  enabled   Boolean  @default(true)
+  lastRunAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([guildId])
+  @@index([enabled, runAt])
+}

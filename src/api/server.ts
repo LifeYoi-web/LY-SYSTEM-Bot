@@ -16,6 +16,11 @@ import { createAutoModRouter } from './routes/automod';
 import { createLogsRouter } from './routes/logs';
 import { createAnalyticsRouter } from './routes/analytics';
 import { createServerRouter } from './routes/server';
+import { createLevelingRouter } from './routes/leveling';
+import { createRolePanelsRouter } from './routes/rolepanels';
+import { createAnnounceRouter } from './routes/announce';
+import { createAutoRespondersRouter } from './routes/autoresponders';
+import { createScheduledRouter } from './routes/scheduled';
 import { requireStaff } from './middleware/requireStaff';
 import { rateLimit } from './middleware/rateLimit';
 
@@ -77,6 +82,11 @@ export function createApp(deps: ApiDeps): Express {
   );
   app.use('/api/settings', requireStaff(), createSettingsRouter({ config: deps.config }));
   app.use('/api/automod', requireStaff(), createAutoModRouter({ config: deps.config }));
+  app.use('/api/leveling', requireStaff(), createLevelingRouter(deps));
+  app.use('/api/rolepanels', requireStaff(), createRolePanelsRouter(deps));
+  app.use('/api/announce', requireStaff(), rateLimit({ windowMs: 60_000, max: 20 }), createAnnounceRouter(deps));
+  app.use('/api/autoresponders', requireStaff(), createAutoRespondersRouter(deps));
+  app.use('/api/scheduled', requireStaff(), createScheduledRouter(deps));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));

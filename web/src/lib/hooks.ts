@@ -12,6 +12,12 @@ import type {
   ServerInfo,
   Channel,
   Role,
+  LevelConfig,
+  LevelReward,
+  LeaderboardEntry,
+  RolePanel,
+  AutoResponse,
+  ScheduledMessage,
 } from './types';
 
 export function useOverview() {
@@ -124,5 +130,108 @@ export function useLiftCase() {
       qc.invalidateQueries({ queryKey: ['cases'] });
       qc.invalidateQueries({ queryKey: ['overview'] });
     },
+  });
+}
+
+// ---- Leveling ----
+export function useLeveling() {
+  return useQuery<{ config: LevelConfig; rewards: LevelReward[] }>({ queryKey: ['leveling'], queryFn: () => api('/leveling') });
+}
+export function useUpdateLeveling() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<LevelConfig>) => apiPut<LevelConfig>('/leveling', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['leveling'] }),
+  });
+}
+export function useLeaderboard() {
+  return useQuery<{ leaderboard: LeaderboardEntry[] }>({ queryKey: ['leaderboard'], queryFn: () => api('/leveling/leaderboard') });
+}
+export function useAddReward() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { level: number; roleId: string }) => apiPost('/leveling/rewards', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['leveling'] }),
+  });
+}
+export function useDeleteReward() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/leveling/rewards/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['leveling'] }),
+  });
+}
+
+// ---- Role panels ----
+export function useRolePanels() {
+  return useQuery<{ panels: RolePanel[] }>({ queryKey: ['rolepanels'], queryFn: () => api('/rolepanels') });
+}
+export function useSaveRolePanel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: Partial<RolePanel> & { id?: string }) =>
+      id ? apiPut(`/rolepanels/${id}`, body) : apiPost('/rolepanels', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rolepanels'] }),
+  });
+}
+export function useDeleteRolePanel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/rolepanels/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rolepanels'] }),
+  });
+}
+export function usePostRolePanel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, channelId }: { id: string; channelId: string }) => apiPost(`/rolepanels/${id}/post`, { channelId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rolepanels'] }),
+  });
+}
+
+// ---- Announce ----
+export function useAnnounce() {
+  return useMutation({
+    mutationFn: (body: { channelId: string; content?: string; embed?: Record<string, string> }) => apiPost('/announce', body),
+  });
+}
+
+// ---- Auto-responders ----
+export function useAutoResponders() {
+  return useQuery<{ items: AutoResponse[] }>({ queryKey: ['autoresponders'], queryFn: () => api('/autoresponders') });
+}
+export function useSaveAutoResponder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: Partial<AutoResponse> & { id?: string }) =>
+      id ? apiPut(`/autoresponders/${id}`, body) : apiPost('/autoresponders', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['autoresponders'] }),
+  });
+}
+export function useDeleteAutoResponder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/autoresponders/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['autoresponders'] }),
+  });
+}
+
+// ---- Scheduled ----
+export function useScheduled() {
+  return useQuery<{ items: ScheduledMessage[] }>({ queryKey: ['scheduled'], queryFn: () => api('/scheduled') });
+}
+export function useSaveScheduled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: Partial<ScheduledMessage> & { id?: string }) =>
+      id ? apiPut(`/scheduled/${id}`, body) : apiPost('/scheduled', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduled'] }),
+  });
+}
+export function useDeleteScheduled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/scheduled/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduled'] }),
   });
 }

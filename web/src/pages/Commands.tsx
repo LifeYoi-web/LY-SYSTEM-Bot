@@ -39,6 +39,14 @@ const GROUPS: { title: string; icon: IconName; items: Cmd[] }[] = [
       { name: '/say', desc: 'إعلان باسم البوت', icon: 'megaphone' },
     ],
   },
+  {
+    title: 'المستويات',
+    icon: 'sparkles',
+    items: [
+      { name: '/rank', desc: 'عرض مستواك أو مستوى عضو', icon: 'bar-chart' },
+      { name: '/leaderboard', desc: 'أفضل ١٠ أعضاء', icon: 'crown' },
+    ],
+  },
 ];
 
 export function Commands() {

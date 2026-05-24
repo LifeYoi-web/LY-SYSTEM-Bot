@@ -152,3 +152,66 @@ export interface Role {
   position: number;
   managed: boolean;
 }
+
+export interface LevelConfig {
+  guildId: string;
+  enabled: boolean;
+  xpPerMessage: number;
+  cooldownSeconds: number;
+  multiplier: number;
+  levelUpEnabled: boolean;
+  levelUpChannelId: string | null;
+  levelUpMessage: string | null;
+  stackRewards: boolean;
+}
+export interface LevelReward {
+  id: string;
+  guildId: string;
+  level: number;
+  roleId: string;
+}
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  xp: number;
+  level: number;
+  progress: { level: number; into: number; needed: number; pct: number };
+}
+
+export interface PanelRole {
+  roleId: string;
+  label: string;
+  emoji?: string;
+  style?: number;
+}
+export interface RolePanel {
+  id: string;
+  guildId: string;
+  channelId: string | null;
+  messageId: string | null;
+  title: string;
+  description: string | null;
+  roles: PanelRole[];
+  createdAt: string;
+}
+
+export interface AutoResponse {
+  id: string;
+  guildId: string;
+  trigger: string;
+  matchType: string;
+  reply: string;
+  enabled: boolean;
+}
+
+export interface ScheduledMessage {
+  id: string;
+  guildId: string;
+  channelId: string;
+  content: string;
+  runAt: string;
+  repeat: string;
+  enabled: boolean;
+  lastRunAt: string | null;
+  createdAt: string;
+}

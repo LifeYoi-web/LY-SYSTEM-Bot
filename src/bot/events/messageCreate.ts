@@ -1,7 +1,10 @@
-import { Message, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { Message, PermissionFlagsBits, EmbedBuilder, type TextChannel } from 'discord.js';
 import { prisma } from '../../db/prisma';
 import { getAutoMod } from '../../db/automod';
+import { getAutoResponses, matchAutoResponse } from '../../db/autoresponses';
+import { getLevelConfig } from '../../db/leveling';
 import { checkContent, checkSpam, VIOLATION_LABELS } from '../automod/checker';
+import { awardMessageXp } from '../leveling';
 import { bump } from '../stats';
 import { logEvent } from '../logging';
 import { banUser, kickUser, muteUser, warnUser, type ActionDeps, type GuildLike } from '../moderation/actions';
@@ -11,56 +14,85 @@ module.exports = {
   once: false,
   async execute(message: Message) {
     if (!message.guild || message.author.bot) return;
-    bump(message.guild.id, 'messages');
+    const guildId = message.guild.id;
+    bump(guildId, 'messages');
 
-    const cfg = await getAutoMod(message.guild.id).catch(() => null);
-    if (!cfg || !cfg.enabled) return;
-    if (cfg.ignoredChannelIds.includes(message.channelId)) return;
-
-    const member = message.member;
-    // Staff and explicitly ignored roles bypass automod.
-    if (member?.permissions.has(PermissionFlagsBits.ManageMessages)) return;
-    if (member && cfg.ignoredRoleIds.some((id) => member.roles.cache.has(id))) return;
-
-    const mentions = message.mentions.users.size;
-    let violation = checkContent(message.content ?? '', mentions, cfg);
-    if (!violation && cfg.antiSpam && checkSpam(message.author.id)) violation = 'spam';
-    if (!violation) return;
-
-    await message.delete().catch(() => undefined);
-
-    const deps: ActionDeps = { guild: message.guild as unknown as GuildLike, prisma };
-    const params = {
-      guildId: message.guild.id,
-      targetUserId: message.author.id,
-      moderatorId: message.client.user?.id ?? 'automod',
-      reason: `AutoMod: ${VIOLATION_LABELS[violation]}`,
-    };
-    try {
-      if (cfg.actionOnViolation === 'warn') await warnUser(deps, params);
-      else if (cfg.actionOnViolation === 'mute') await muteUser(deps, { ...params, seconds: cfg.muteSeconds });
-      else if (cfg.actionOnViolation === 'kick') await kickUser(deps, params);
-      else if (cfg.actionOnViolation === 'ban') await banUser(deps, params);
-    } catch {
-      /* the message was already removed; action failures are non-fatal */
+    // 1) AutoMod — may delete the message and act, then stop processing it.
+    const cfg = await getAutoMod(guildId).catch(() => null);
+    if (cfg?.enabled && !cfg.ignoredChannelIds.includes(message.channelId)) {
+      const member = message.member;
+      const bypass =
+        member?.permissions.has(PermissionFlagsBits.ManageMessages) ||
+        (member != null && cfg.ignoredRoleIds.some((id) => member.roles.cache.has(id)));
+      if (!bypass) {
+        const mentions = message.mentions.users.size;
+        let violation = checkContent(message.content ?? '', mentions, cfg);
+        if (!violation && cfg.antiSpam && checkSpam(message.author.id)) violation = 'spam';
+        if (violation) {
+          await message.delete().catch(() => undefined);
+          const deps: ActionDeps = { guild: message.guild as unknown as GuildLike, prisma };
+          const params = {
+            guildId,
+            targetUserId: message.author.id,
+            moderatorId: message.client.user?.id ?? 'automod',
+            reason: `AutoMod: ${VIOLATION_LABELS[violation]}`,
+          };
+          try {
+            if (cfg.actionOnViolation === 'warn') await warnUser(deps, params);
+            else if (cfg.actionOnViolation === 'mute') await muteUser(deps, { ...params, seconds: cfg.muteSeconds });
+            else if (cfg.actionOnViolation === 'kick') await kickUser(deps, params);
+            else if (cfg.actionOnViolation === 'ban') await banUser(deps, params);
+          } catch {
+            /* message already removed; action failures are non-fatal */
+          }
+          bump(guildId, 'modActions');
+          const embed = new EmbedBuilder()
+            .setColor(0xe5484d)
+            .setTitle('🛡️ AutoMod')
+            .addFields(
+              { name: 'العضو', value: `<@${message.author.id}>`, inline: true },
+              { name: 'المخالفة', value: VIOLATION_LABELS[violation], inline: true },
+              { name: 'الإجراء', value: cfg.actionOnViolation, inline: true },
+            )
+            .setTimestamp();
+          await logEvent({ client: message.client, prisma }, guildId, `automod_${violation}`, {
+            userId: message.author.id,
+            channelId: message.channelId,
+            action: cfg.actionOnViolation,
+          }, embed);
+          return;
+        }
+      }
     }
-    bump(message.guild.id, 'modActions');
 
-    const embed = new EmbedBuilder()
-      .setColor(0xe5484d)
-      .setTitle('🛡️ AutoMod')
-      .addFields(
-        { name: 'العضو', value: `<@${message.author.id}>`, inline: true },
-        { name: 'المخالفة', value: VIOLATION_LABELS[violation], inline: true },
-        { name: 'الإجراء', value: cfg.actionOnViolation, inline: true },
-      )
-      .setTimestamp();
-    await logEvent(
-      { client: message.client, prisma },
-      message.guild.id,
-      `automod_${violation}`,
-      { userId: message.author.id, channelId: message.channelId, action: cfg.actionOnViolation },
-      embed,
-    );
+    // 2) Auto-responder
+    try {
+      const responses = await getAutoResponses(guildId);
+      if (responses.length) {
+        const match = matchAutoResponse(message.content ?? '', responses);
+        if (match) await message.reply({ content: match.reply }).catch(() => undefined);
+      }
+    } catch {
+      /* non-fatal */
+    }
+
+    // 3) Leveling XP
+    try {
+      const lvl = await getLevelConfig(guildId);
+      if (lvl.enabled && message.member) {
+        const r = await awardMessageXp(prisma, guildId, message.author.id, message.member, lvl);
+        if (r.leveledUp && lvl.levelUpEnabled) {
+          const text = (lvl.levelUpMessage || '🎉 مبروك {user}! وصلت المستوى {level}.')
+            .split('{user}').join(`<@${message.author.id}>`)
+            .split('{level}').join(String(r.level));
+          const target = lvl.levelUpChannelId
+            ? (message.guild.channels.cache.get(lvl.levelUpChannelId) as TextChannel | undefined)
+            : (message.channel as TextChannel);
+          await target?.send?.({ content: text, allowedMentions: { users: [message.author.id] } }).catch(() => undefined);
+        }
+      }
+    } catch {
+      /* non-fatal */
+    }
   },
 };

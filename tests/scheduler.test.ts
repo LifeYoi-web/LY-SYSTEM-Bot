@@ -1,5 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
-import { liftExpiredCases } from '../src/bot/scheduler';
+import { liftExpiredCases, computeNextRun } from '../src/bot/scheduler';
+
+describe('computeNextRun', () => {
+  it('returns null for a one-off', () => {
+    expect(computeNextRun(new Date('2026-05-24T00:00:00Z'), 'none')).toBeNull();
+  });
+  it('advances a daily schedule to the next future occurrence', () => {
+    const now = new Date('2026-05-24T12:00:00Z');
+    const next = computeNextRun(new Date('2026-05-20T09:00:00Z'), 'daily', now);
+    expect(next?.toISOString()).toBe('2026-05-25T09:00:00.000Z');
+  });
+  it('advances a weekly schedule past now', () => {
+    const now = new Date('2026-05-24T12:00:00Z');
+    const next = computeNextRun(new Date('2026-05-01T00:00:00Z'), 'weekly', now)!;
+    expect(next.getTime()).toBeGreaterThan(now.getTime());
+  });
+});
 
 describe('liftExpiredCases', () => {
   it('lifts each expired active case and returns the count', async () => {
