@@ -357,11 +357,16 @@ table.tbl tbody tr.clickable { cursor: pointer; }
 .spark { height: 38px; margin-top: 12px; position: relative; }
 
 /* ---------------------------------------------------------------- modal + drawer */
-.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.58); backdrop-filter: blur(4px); z-index: var(--z-modal); animation: fade var(--t-fast); }
+/* Overlay is the backdrop: it must paint BELOW the card/panel. It carries no
+   z-index of its own (a positive one would beat the card's `z-index: auto` and
+   sit on top — dimming the dialog and swallowing every click). The card/panel
+   get an explicit z-index so they stay above the overlay regardless of DOM order. */
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.58); backdrop-filter: blur(4px); animation: fade var(--t-fast); }
 .modal {
   position: fixed; inset: 0; display: grid; place-items: center; padding: 20px; z-index: var(--z-modal);
 }
 .modal-card {
+  position: relative; z-index: 1;
   width: min(460px, 100%); background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 26px; animation: pop var(--t);
 }
@@ -372,7 +377,7 @@ table.tbl tbody tr.clickable { cursor: pointer; }
 
 .drawer { position: fixed; inset: 0; z-index: var(--z-drawer); }
 .drawer-panel {
-  position: absolute; inset-block: 0; inset-inline-start: 0; width: min(440px, 92vw);
+  position: absolute; z-index: 1; inset-block: 0; inset-inline-start: 0; width: min(440px, 92vw);
   background: var(--surface); border-inline-end: 1px solid var(--border); box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column; animation: slideIn var(--t-slow);
 }
