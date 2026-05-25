@@ -2,15 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { banUser, kickUser, muteUser, warnUser, liftCase } from '../src/bot/moderation/actions';
 
 function fakeDeps() {
-  const member = { timeout: vi.fn().mockResolvedValue(undefined) };
+  const calls: string[] = [];
+  const member = { timeout: vi.fn().mockImplementation(async () => void calls.push('timeout')) };
   const guild = {
     members: {
-      ban: vi.fn().mockResolvedValue(undefined),
-      kick: vi.fn().mockResolvedValue(undefined),
+      ban: vi.fn().mockImplementation(async () => void calls.push('ban')),
+      kick: vi.fn().mockImplementation(async () => void calls.push('kick')),
       unban: vi.fn().mockResolvedValue(undefined),
       fetch: vi.fn().mockResolvedValue(member),
     },
   };
+  const notify = vi.fn().mockImplementation(async () => void calls.push('notify'));
   let seq = 0;
   const prisma = {
     moderationCase: {
@@ -20,7 +22,7 @@ function fakeDeps() {
     },
     logEntry: { create: vi.fn().mockResolvedValue(undefined) },
   };
-  return { deps: { guild, prisma } as any, guild, member, prisma };
+  return { deps: { guild, prisma, notify } as any, guild, member, prisma, notify, calls };
 }
 
 const base = { guildId: 'g1', targetUserId: 'u1', moderatorId: 'm1', reason: 'spam' };
@@ -53,11 +55,35 @@ describe('moderation actions', () => {
     expect(c.expiresAt).toBeInstanceOf(Date);
   });
 
-  it('warnUser only records (no Discord action)', async () => {
+  it('warnUser records and DMs the target (no ban/kick)', async () => {
     const c = await warnUser(f.deps, base);
     expect(f.guild.members.ban).not.toHaveBeenCalled();
     expect(f.guild.members.kick).not.toHaveBeenCalled();
+    expect(f.notify).toHaveBeenCalledWith({ userId: 'u1', type: 'warn', reason: 'spam' });
     expect(c.type).toBe('warn');
+  });
+
+  it('banUser DMs the target BEFORE banning (cannot DM once removed)', async () => {
+    await banUser(f.deps, base);
+    expect(f.notify).toHaveBeenCalledWith({ userId: 'u1', type: 'ban', reason: 'spam' });
+    expect(f.calls).toEqual(['notify', 'ban']);
+  });
+
+  it('kickUser DMs the target before kicking', async () => {
+    await kickUser(f.deps, base);
+    expect(f.calls).toEqual(['notify', 'kick']);
+  });
+
+  it('muteUser DMs the target', async () => {
+    await muteUser(f.deps, { ...base, seconds: 300 });
+    expect(f.notify).toHaveBeenCalledWith({ userId: 'u1', type: 'mute', reason: 'spam' });
+  });
+
+  it('a failing DM never blocks the moderation action', async () => {
+    f.notify.mockRejectedValueOnce(new Error('user has DMs closed'));
+    const c = await banUser(f.deps, base);
+    expect(f.guild.members.ban).toHaveBeenCalledWith('u1', expect.objectContaining({ reason: 'spam' }));
+    expect(c.type).toBe('ban');
   });
 
   it('liftCase unbans, marks the ban case inactive and logs', async () => {

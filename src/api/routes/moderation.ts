@@ -11,6 +11,7 @@ import {
   type ActionDeps,
   type GuildLike,
 } from '../../bot/moderation/actions';
+import { makeModNotifier } from '../../bot/moderation/notify';
 import { logger } from '../../shared/logger';
 
 export interface ModerationDeps {
@@ -30,7 +31,11 @@ export function createModerationRouter(deps: ModerationDeps): Router {
       res.status(503).json({ error: 'guild not available' });
       return null;
     }
-    return { guild: guild as unknown as GuildLike, prisma: deps.prisma };
+    return {
+      guild: guild as unknown as GuildLike,
+      prisma: deps.prisma,
+      notify: makeModNotifier(deps.client, guild.name),
+    };
   }
 
   const moderatorId = (req: Request): string => req.session?.user?.id ?? 'unknown';

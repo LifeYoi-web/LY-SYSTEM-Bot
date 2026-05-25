@@ -6,6 +6,7 @@ import {
 } from 'discord.js';
 import { prisma } from '../../../db/prisma';
 import { warnUser, type GuildLike } from '../../moderation/actions';
+import { makeModNotifier } from '../../moderation/notify';
 import { bump } from '../../stats';
 
 module.exports = {
@@ -22,7 +23,7 @@ module.exports = {
     const reason = interaction.options.getString('reason', true);
     await interaction.deferReply();
     await warnUser(
-      { guild: interaction.guild as unknown as GuildLike, prisma },
+      { guild: interaction.guild as unknown as GuildLike, prisma, notify: makeModNotifier(interaction.client, interaction.guild.name) },
       { guildId: interaction.guild.id, targetUserId: user.id, moderatorId: interaction.user.id, reason },
     );
     bump(interaction.guild.id, 'modActions');

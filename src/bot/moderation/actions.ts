@@ -13,12 +13,16 @@ export interface GuildLike {
   };
 }
 
+export type CaseType = 'ban' | 'kick' | 'mute' | 'warn';
+
+/** Best-effort DM to the action's target; the implementation must never throw. */
+export type NotifyFn = (p: { userId: string; type: CaseType; reason?: string }) => Promise<void>;
+
 export interface ActionDeps {
   guild: GuildLike;
   prisma: PrismaClient;
+  notify?: NotifyFn;
 }
-
-export type CaseType = 'ban' | 'kick' | 'mute' | 'warn';
 
 interface BaseParams {
   guildId: string;
@@ -68,7 +72,21 @@ async function recordCase(
   return created;
 }
 
+/**
+ * Best-effort DM to the target. For ban/kick this MUST run before the Discord
+ * action — once the user is removed from the guild the bot can no longer DM them.
+ * A failed DM (user has DMs closed) must never fail the moderation action.
+ */
+async function notifyTarget(deps: ActionDeps, type: CaseType, p: BaseParams): Promise<void> {
+  try {
+    await deps.notify?.({ userId: p.targetUserId, type, reason: p.reason });
+  } catch {
+    /* swallow: notifying the user is best-effort */
+  }
+}
+
 export async function banUser(deps: ActionDeps, p: BanParams): Promise<ModerationCase> {
+  await notifyTarget(deps, 'ban', p);
   await deps.guild.members.ban(p.targetUserId, {
     reason: p.reason,
     deleteMessageSeconds: p.deleteMessageSeconds,
@@ -77,17 +95,20 @@ export async function banUser(deps: ActionDeps, p: BanParams): Promise<Moderatio
 }
 
 export async function kickUser(deps: ActionDeps, p: KickParams): Promise<ModerationCase> {
+  await notifyTarget(deps, 'kick', p);
   await deps.guild.members.kick(p.targetUserId, p.reason);
   return recordCase(deps, 'kick', p);
 }
 
 export async function muteUser(deps: ActionDeps, p: MuteParams): Promise<ModerationCase> {
+  await notifyTarget(deps, 'mute', p);
   const member = await deps.guild.members.fetch(p.targetUserId);
   await member.timeout(p.seconds * 1000, p.reason);
   return recordCase(deps, 'mute', p, new Date(Date.now() + p.seconds * 1000));
 }
 
 export async function warnUser(deps: ActionDeps, p: WarnParams): Promise<ModerationCase> {
+  await notifyTarget(deps, 'warn', p);
   return recordCase(deps, 'warn', p);
 }
 

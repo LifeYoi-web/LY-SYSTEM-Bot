@@ -6,6 +6,7 @@ import {
 } from 'discord.js';
 import { prisma } from '../../../db/prisma';
 import { muteUser, type GuildLike } from '../../moderation/actions';
+import { makeModNotifier } from '../../moderation/notify';
 import { bump } from '../../stats';
 
 const MAX_MINUTES = 40_320; // 28 days
@@ -29,7 +30,7 @@ module.exports = {
     await interaction.deferReply();
     try {
       await muteUser(
-        { guild: interaction.guild as unknown as GuildLike, prisma },
+        { guild: interaction.guild as unknown as GuildLike, prisma, notify: makeModNotifier(interaction.client, interaction.guild.name) },
         {
           guildId: interaction.guild.id,
           targetUserId: user.id,
