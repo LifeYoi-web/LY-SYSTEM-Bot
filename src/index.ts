@@ -7,19 +7,23 @@ import { prisma } from './db/prisma';
 import { ensureGuildSettings } from './db/settingsCache';
 import { startApiServer } from './api/server';
 import { startScheduler } from './bot/scheduler';
+import { boot } from './boot';
 
 async function main() {
   const config = loadConfig();
 
   const commands = loadCommands();
-  await registerCommands(commands, config.discordToken, config.clientId, config.guildId);
   loadEvents(client, commands);
 
-  await client.login(config.discordToken);
-  await ensureGuildSettings(config.guildId);
-
-  startApiServer({ client, prisma, config });
-  startScheduler({ client, prisma, guildId: config.guildId });
+  await boot({
+    guildId: config.guildId,
+    login: () => client.login(config.discordToken),
+    ensureGuildSettings,
+    startApiServer: () => startApiServer({ client, prisma, config }),
+    startScheduler: () => startScheduler({ client, prisma, guildId: config.guildId }),
+    registerCommands: () => registerCommands(commands, config.discordToken, config.clientId, config.guildId),
+    logError: (msg) => logger.error(msg),
+  });
 }
 
 main().catch((err) => {
