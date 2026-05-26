@@ -1,5 +1,7 @@
-import { Client, ActivityType } from 'discord.js';
+import { Client } from 'discord.js';
 import { logger } from '../../shared/logger';
+import { getSettings } from '../../db/settingsCache';
+import { buildPresence } from '../presence';
 
 module.exports = {
   name: 'ready',
@@ -8,14 +10,13 @@ module.exports = {
     logger.success(`Bot is online as: ${client.user?.tag}`);
     logger.info(`Connected to ${client.guilds.cache.size} server(s)`);
 
+    const guildId = process.env.GUILD_ID;
     const totalMembers = client.guilds.cache.reduce((sum, g) => sum + (g.memberCount ?? 0), 0);
-    client.user?.setPresence({
-      status: 'online',
-      activities: [{ name: `${totalMembers} عضو • /help`, type: ActivityType.Watching }],
-    });
+    // Apply the dashboard-configured presence (falls back to the default Watching status).
+    const settings = guildId ? await getSettings(guildId).catch(() => null) : null;
+    client.user?.setPresence(buildPresence(settings ?? {}, totalMembers));
 
     // Warm the member cache so the dashboard's member list + analytics are complete.
-    const guildId = process.env.GUILD_ID;
     if (guildId) {
       const guild = client.guilds.cache.get(guildId);
       await guild?.members

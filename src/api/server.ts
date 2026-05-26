@@ -32,6 +32,7 @@ import { createCountingRouter } from './routes/counting';
 import { createStatCountersRouter } from './routes/statcounters';
 import { createRemindersRouter } from './routes/reminders';
 import { createReportRouter } from './routes/report';
+import { createBotRouter } from './routes/bot';
 import { requireStaff } from './middleware/requireStaff';
 import { rateLimit } from './middleware/rateLimit';
 
@@ -109,6 +110,7 @@ export function createApp(deps: ApiDeps): Express {
   app.use('/api/statcounters', requireStaff(), createStatCountersRouter(deps));
   app.use('/api/reminders', requireStaff(), createRemindersRouter(deps));
   app.use('/api/report', requireStaff(), createReportRouter(deps));
+  app.use('/api/bot', requireStaff(), createBotRouter({ client: deps.client, config: deps.config }));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));

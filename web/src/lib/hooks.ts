@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, apiPost, apiPut, apiDelete } from './api';
 import type {
   Overview,
+  BotPresence,
   MembersResponse,
   MemberDetail,
   ModCase,
@@ -234,4 +235,20 @@ export function useDeleteScheduled() {
     mutationFn: (id: string) => apiDelete(`/scheduled/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduled'] }),
   });
+}
+
+// ---- Bot (presence + restart) ----
+export function useBotPresence() {
+  return useQuery<BotPresence>({ queryKey: ['botPresence'], queryFn: () => api('/bot/presence') });
+}
+export function useUpdateBotPresence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { type: string | null; text: string | null; url: string | null }) =>
+      apiPut<BotPresence>('/bot/presence', body),
+    onSuccess: (data) => qc.setQueryData(['botPresence'], data),
+  });
+}
+export function useRestartBot() {
+  return useMutation<{ ok: boolean }, Error, void>({ mutationFn: () => apiPost('/bot/restart') });
 }

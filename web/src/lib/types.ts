@@ -15,6 +15,13 @@ export interface Overview {
   recentLogs: LogEntry[];
 }
 
+export interface BotPresence {
+  type: string | null; // playing | listening | watching | streaming | custom | null
+  text: string | null;
+  url: string | null;
+  types?: string[]; // allowed types (returned by GET)
+}
+
 export interface RoleRef {
   id: string;
   name: string;

@@ -18,6 +18,10 @@ model GuildSettings {
   goodbyeEnabled Boolean        @default(false)
   goodbyeMessage String?
   autoRoleId     String?
+  // Bot presence (dashboard-configurable). Null type = default Watching <count> عضو • /help.
+  botPresenceType String?       // playing | listening | watching | streaming | custom
+  botPresenceText String?
+  botPresenceUrl  String?       // twitch/youtube URL, only for streaming
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   autoMod        AutoModConfig?

@@ -16,6 +16,9 @@ export type EditableSettings = Partial<
     | 'goodbyeEnabled'
     | 'goodbyeMessage'
     | 'autoRoleId'
+    | 'botPresenceType'
+    | 'botPresenceText'
+    | 'botPresenceUrl'
   >
 >;
 

@@ -60,6 +60,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: 'الإعداد',
     items: [
+      { to: '/dashboard/bot', label: 'البوت', icon: 'bot' },
       { to: '/dashboard/welcome', label: 'الترحيب', icon: 'smile' },
       { to: '/dashboard/commands', label: 'الأوامر', icon: 'terminal' },
       { to: '/dashboard/settings', label: 'الإعدادات', icon: 'settings' },
@@ -90,6 +91,7 @@ const TITLES: Record<string, string> = {
   '/dashboard/sticky': 'الرسائل المثبّتة',
   '/dashboard/reminders': 'التذكيرات',
   '/dashboard/statcounters': 'عدّادات الإحصاء',
+  '/dashboard/bot': 'إعدادات البوت',
   '/dashboard/welcome': 'رسائل الترحيب',
   '/dashboard/commands': 'أوامر البوت',
   '/dashboard/settings': 'الإعدادات',
