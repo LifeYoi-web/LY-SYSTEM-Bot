@@ -9,9 +9,15 @@ system: multiple ticket types, claim, transcript-on-close + DM + immediate delet
 slash commands, and dashboard close/view.
 
 ## Close behavior (decided)
-**Transcript then immediate delete.** On close: render an HTML transcript → store it in the DB +
-post it (as a file) to the transcript/log channel + DM it to the opener → delete the channel.
-**Reopen** creates a *new* channel reusing the same `Ticket` row and number.
+**Transcript then immediate delete.** On close: render an HTML transcript → store it in the DB →
+post a close *summary* (embed + reopen button) to the transcript/log channel → DM the opener a plain
+close notice → delete the channel. **Reopen** creates a *new* channel reusing the same `Ticket` row
+and number.
+
+The raw HTML transcript is **never attached as a file in Discord** (it would expose the markup to
+members/staff as code). It is stored in the DB and viewable *rendered* only through the dashboard
+(staff-only, behind `requireStaff`): `GET /api/tickets/transcripts/:id`. _(Revised post-ship per user
+feedback "ما ابغا الاكواد تطلع لأي احد".)_
 
 ## Schema (additive — `db push` safe)
 - `TicketConfig` += `transcriptChannelId String?`, `dmOnOpen Boolean @default(true)`, `dmOnClose Boolean @default(true)`.

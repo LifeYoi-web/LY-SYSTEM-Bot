@@ -245,15 +245,11 @@ function buildOverwrites(guild: Guild, userId: string, supportRoleId: string | n
   return ow;
 }
 
-/** Best-effort DM (optionally with a transcript file). Never throws. */
-async function dmUser(client: Client, userId: string, content: string, file?: { html: string; number: number }): Promise<void> {
+/** Best-effort DM. Never throws. */
+async function dmUser(client: Client, userId: string, content: string): Promise<void> {
   try {
     const user = await client.users.fetch(userId);
-    await user.send(
-      file
-        ? { content, files: [{ attachment: Buffer.from(file.html, 'utf8'), name: `transcript-${file.number}.html` }] }
-        : { content },
-    );
+    await user.send({ content });
   } catch {
     /* user has DMs closed — best effort */
   }
@@ -426,13 +422,15 @@ export async function closeTicket(
           { name: 'العضو', value: `<@${ticket.userId}>`, inline: true },
           { name: 'أُغلقت بواسطة', value: `<@${closedBy}>`, inline: true },
           ...(reason ? [{ name: 'السبب', value: reason.slice(0, 1000) }] : []),
+          { name: 'النسخة', value: 'محفوظة — اعرضها (مرسومة) من لوحة التحكم › التذاكر المغلقة.' },
         )
         .setTimestamp();
+      // The transcript is stored and viewable (rendered) in the dashboard only — never posted as a
+      // raw .html file, so the markup is not exposed to members or staff inside Discord.
       await dest
         .send({
           embeds: [embed],
           components: [reopenRow(ticket.id)],
-          files: [{ attachment: Buffer.from(html, 'utf8'), name: `transcript-${ticket.number}.html` }],
           allowedMentions: { parse: [] },
         })
         .catch(() => undefined);
@@ -440,12 +438,7 @@ export async function closeTicket(
   }
 
   if (cfg.dmOnClose) {
-    await dmUser(
-      guild.client,
-      ticket.userId,
-      `🔒 تم إغلاق تذكرتك **#${ticket.number}** في **${guild.name}**. مرفق نسخة المحادثة.`,
-      { html, number: ticket.number },
-    );
+    await dmUser(guild.client, ticket.userId, `🔒 تم إغلاق تذكرتك **#${ticket.number}** في **${guild.name}**. شكرًا لتواصلك معنا.`);
   }
 
   await logEvent({ client: guild.client, prisma }, guild.id, 'ticket_close', {
