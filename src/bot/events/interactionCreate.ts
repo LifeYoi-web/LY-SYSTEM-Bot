@@ -1,7 +1,22 @@
-import { Interaction, Collection, MessageFlags, type ButtonInteraction } from 'discord.js';
+import {
+  Interaction,
+  Collection,
+  MessageFlags,
+  type ButtonInteraction,
+  type StringSelectMenuInteraction,
+} from 'discord.js';
 import { prisma } from '../../db/prisma';
 import { logger } from '../../shared/logger';
-import { openTicket, closeTicket } from '../tickets';
+import {
+  openTicket,
+  closeTicket,
+  setClaim,
+  reopenTicket,
+  ticketControlsRow,
+  closeConfirmRow,
+  isTicketStaff,
+} from '../tickets';
+import { getTicketConfig, getTicketTypes } from '../../db/community';
 import { buildSuggestionMessage } from '../suggestions';
 
 const EPH = { flags: MessageFlags.Ephemeral } as const;
@@ -27,9 +42,24 @@ async function handleRoleButton(interaction: ButtonInteraction): Promise<void> {
   }
 }
 
+async function isTicketStaffInteraction(interaction: ButtonInteraction): Promise<boolean> {
+  if (!interaction.guild) return false;
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) return false;
+  const [cfg, types] = await Promise.all([
+    getTicketConfig(interaction.guild.id),
+    getTicketTypes(interaction.guild.id),
+  ]);
+  return isTicketStaff(member, cfg, types);
+}
+
+const TICKET_STAFF_ONLY = '❌ هذا الإجراء لفريق الدعم فقط.';
+
 async function handleTicketButton(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.guild) return;
-  if (interaction.customId === 'ticket:open') {
+  const id = interaction.customId;
+
+  if (id === 'ticket:open') {
     await interaction.deferReply(EPH);
     const channel = await openTicket(interaction.guild, prisma, interaction.user.id);
     await interaction.editReply(
@@ -37,10 +67,71 @@ async function handleTicketButton(interaction: ButtonInteraction): Promise<void>
         ? `✅ تم فتح تذكرتك: <#${channel.id}>`
         : '❌ تعذّر فتح التذكرة — قد تكون لديك تذكرة مفتوحة أو النظام متوقف.',
     );
-  } else if (interaction.customId === 'ticket:close') {
-    await interaction.reply({ content: '🔒 يتم إغلاق التذكرة...', ...EPH }).catch(() => undefined);
-    await closeTicket(interaction.guild, prisma, interaction.channelId, interaction.user.id);
+    return;
   }
+
+  if (id === 'ticket:claim' || id === 'ticket:unclaim') {
+    if (!(await isTicketStaffInteraction(interaction))) {
+      await interaction.reply({ content: TICKET_STAFF_ONLY, ...EPH });
+      return;
+    }
+    const claim = id === 'ticket:claim';
+    const updated = await setClaim(interaction.guild, prisma, interaction.channelId, interaction.user.id, claim);
+    if (!updated) {
+      await interaction.reply({ content: '❌ هذه القناة ليست تذكرة مفتوحة.', ...EPH });
+      return;
+    }
+    await interaction.update({ components: [ticketControlsRow(claim)] }).catch(() => undefined);
+    await interaction
+      .followUp({
+        content: claim
+          ? `🙋 تم استلام التذكرة بواسطة <@${interaction.user.id}>`
+          : `↩️ تم فك الاستلام بواسطة <@${interaction.user.id}>`,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => undefined);
+    return;
+  }
+
+  if (id === 'ticket:close') {
+    await interaction
+      .reply({ content: 'متأكد إنك تبي تغلق التذكرة؟ بتُحفظ نسخة وتُحذف القناة.', components: [closeConfirmRow()], ...EPH })
+      .catch(() => undefined);
+    return;
+  }
+
+  if (id === 'ticket:close:cancel') {
+    await interaction.update({ content: 'تم الإلغاء.', components: [] }).catch(() => undefined);
+    return;
+  }
+
+  if (id === 'ticket:close:confirm') {
+    await interaction.update({ content: '🔒 يتم إغلاق التذكرة...', components: [] }).catch(() => undefined);
+    await closeTicket(interaction.guild, prisma, interaction.channelId, interaction.user.id);
+    return;
+  }
+
+  if (id.startsWith('ticket:reopen:')) {
+    if (!(await isTicketStaffInteraction(interaction))) {
+      await interaction.reply({ content: TICKET_STAFF_ONLY, ...EPH });
+      return;
+    }
+    await interaction.deferReply(EPH);
+    const channel = await reopenTicket(interaction.guild, prisma, id.slice('ticket:reopen:'.length), interaction.user.id);
+    await interaction.editReply(channel ? `✅ تم إعادة فتح التذكرة: <#${channel.id}>` : '❌ تعذّر إعادة الفتح.');
+    return;
+  }
+}
+
+async function handleTicketSelect(interaction: StringSelectMenuInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  await interaction.deferReply(EPH);
+  const channel = await openTicket(interaction.guild, prisma, interaction.user.id, interaction.values[0]);
+  await interaction.editReply(
+    channel
+      ? `✅ تم فتح تذكرتك: <#${channel.id}>`
+      : '❌ تعذّر فتح التذكرة — قد تكون لديك تذكرة مفتوحة أو النظام متوقف.',
+  );
 }
 
 async function handleGiveawayButton(interaction: ButtonInteraction): Promise<void> {
@@ -90,6 +181,11 @@ module.exports = {
       else if (id.startsWith('ticket:')) await handleTicketButton(interaction).catch(() => undefined);
       else if (id.startsWith('gw:')) await handleGiveawayButton(interaction).catch(() => undefined);
       else if (id.startsWith('sg:')) await handleSuggestionVote(interaction).catch(() => undefined);
+      return;
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === 'ticket:type') await handleTicketSelect(interaction).catch(() => undefined);
       return;
     }
 

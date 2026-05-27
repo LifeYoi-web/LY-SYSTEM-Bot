@@ -163,12 +163,33 @@ model ScheduledMessage {
 
 // ---- Tickets ----
 model TicketConfig {
-  guildId       String  @id
-  enabled       Boolean @default(false)
+  guildId             String  @id
+  enabled             Boolean @default(false)
+  categoryId          String? // fallback "default type" when no TicketType rows exist
+  supportRoleId       String?
+  openMessage         String?
+  counter             Int     @default(0)
+  transcriptChannelId String? // where transcripts are posted; falls back to logChannelId
+  dmOnOpen            Boolean @default(true)
+  dmOnClose           Boolean @default(true)
+}
+
+// One configurable kind of ticket (Support / Report / Partnership...). When none exist the
+// panel shows a single button and opens use TicketConfig's category/role/message as a default.
+model TicketType {
+  id            String   @id @default(cuid())
+  guildId       String
+  label         String
+  emoji         String?
   categoryId    String?
   supportRoleId String?
   openMessage   String?
-  counter       Int     @default(0)
+  pingSupport   Boolean  @default(true)
+  position      Int      @default(0)
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([guildId])
 }
 
 model Ticket {
@@ -177,11 +198,29 @@ model Ticket {
   channelId String
   userId    String
   number    Int
+  typeId    String? // which TicketType this was opened as (null = default)
+  claimedBy String? // staff user id that claimed it
+  closedBy  String?
   status    String    @default("open") // open | closed
   createdAt DateTime  @default(now())
   closedAt  DateTime?
 
   @@index([guildId, status])
+}
+
+// Stored conversation snapshot generated when a ticket is closed (channel is deleted after).
+// Served as HTML to the dashboard and posted/DMed as a file.
+model TicketTranscript {
+  id        String   @id @default(cuid())
+  guildId   String
+  ticketId  String
+  number    Int
+  html      String
+  closedBy  String?
+  createdAt DateTime @default(now())
+
+  @@index([guildId, createdAt])
+  @@index([ticketId])
 }
 
 // ---- Giveaways ----

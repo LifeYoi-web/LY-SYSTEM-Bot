@@ -4,6 +4,7 @@ import type {
   CountingConfig,
   SuggestionConfig,
   TicketConfig,
+  TicketType,
   BirthdayConfig,
   ReportConfig,
   Highlight,
@@ -60,6 +61,19 @@ const ticketCfg = singleRowCache<TicketConfig>(
 export const getTicketConfig = ticketCfg.get;
 export const updateTicketConfig = ticketCfg.update;
 export const invalidateTicketConfig = ticketCfg.invalidate;
+
+// ---- Ticket types (cached list per guild, ordered by position) ----
+const ticketTypesCache = new Map<string, TicketType[]>();
+export async function getTicketTypes(guildId: string): Promise<TicketType[]> {
+  const c = ticketTypesCache.get(guildId);
+  if (c) return c;
+  const list = await prisma.ticketType.findMany({ where: { guildId }, orderBy: { position: 'asc' } });
+  ticketTypesCache.set(guildId, list);
+  return list;
+}
+export function invalidateTicketTypes(guildId: string): void {
+  ticketTypesCache.delete(guildId);
+}
 
 const birthdayCfg = singleRowCache<BirthdayConfig>(
   (g) => prisma.birthdayConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),

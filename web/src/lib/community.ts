@@ -9,14 +9,36 @@ export interface TicketConfig {
   supportRoleId: string | null;
   openMessage: string | null;
   counter: number;
+  transcriptChannelId: string | null;
+  dmOnOpen: boolean;
+  dmOnClose: boolean;
+}
+export interface TicketType {
+  id: string;
+  guildId: string;
+  label: string;
+  emoji: string | null;
+  categoryId: string | null;
+  supportRoleId: string | null;
+  openMessage: string | null;
+  pingSupport: boolean;
+  position: number;
+  enabled: boolean;
 }
 export interface Ticket {
   id: string;
   channelId: string;
   userId: string;
   number: number;
+  typeId: string | null;
+  claimedBy: string | null;
+  closedBy: string | null;
   status: string;
   createdAt: string;
+  closedAt: string | null;
+}
+export interface ClosedTicket extends Ticket {
+  transcriptId: string | null;
 }
 export interface Giveaway {
   id: string;
@@ -110,13 +132,37 @@ function invalidate(qc: ReturnType<typeof useQueryClient>, key: string) {
 }
 
 // Tickets
-export const useTickets = () => useQuery<{ config: TicketConfig; tickets: Ticket[] }>({ queryKey: ['tickets'], queryFn: () => api('/tickets') });
+export const useTickets = () =>
+  useQuery<{ config: TicketConfig; types: TicketType[]; tickets: Ticket[]; closed: ClosedTicket[] }>({
+    queryKey: ['tickets'],
+    queryFn: () => api('/tickets'),
+  });
 export function useUpdateTicketConfig() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (b: Partial<TicketConfig>) => apiPut('/tickets/config', b), onSuccess: invalidate(qc, 'tickets') });
 }
 export function usePostTicketPanel() {
   return useMutation({ mutationFn: (channelId: string) => apiPost('/tickets/panel', { channelId }) });
+}
+export function useSaveTicketType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...b }: Partial<TicketType> & { id?: string }) =>
+      id ? apiPut(`/tickets/types/${id}`, b) : apiPost('/tickets/types', b),
+    onSuccess: invalidate(qc, 'tickets'),
+  });
+}
+export function useDeleteTicketType() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => apiDelete(`/tickets/types/${id}`), onSuccess: invalidate(qc, 'tickets') });
+}
+export function useCloseTicket() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => apiPost(`/tickets/${id}/close`), onSuccess: invalidate(qc, 'tickets') });
+}
+export function useReopenTicket() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => apiPost(`/tickets/${id}/reopen`), onSuccess: invalidate(qc, 'tickets') });
 }
 
 // Giveaways
