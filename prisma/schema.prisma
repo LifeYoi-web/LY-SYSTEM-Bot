@@ -22,6 +22,12 @@ model GuildSettings {
   botPresenceType String?       // playing | listening | watching | streaming | custom
   botPresenceText String?
   botPresenceUrl  String?       // twitch/youtube URL, only for streaming
+  // Rules acceptance gate (rules:accept button → grant rulesRoleId)
+  rulesEnabled   Boolean        @default(false)
+  rulesChannelId String?
+  rulesMessage   String?
+  rulesRoleId    String?
+  rulesButtonLabel String?      // override default "أوافق على القوانين"
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   autoMod        AutoModConfig?
@@ -381,13 +387,27 @@ model StatCounter {
   @@index([guildId])
 }
 
-// ---- Member profiles (bio) ----
+// ---- Member profiles (bio + timezone) ----
 model Profile {
-  guildId String
-  userId  String
-  bio     String?
+  guildId  String
+  userId   String
+  bio      String?
+  timezone String? // IANA tz id (e.g. "Asia/Riyadh"); used by /time to display local time
 
   @@id([guildId, userId])
+}
+
+// Staff-only private notes about a member, separate from ModerationCase (not enforced — just a watchlist/memo).
+model MemberNote {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String // the member the note is about
+  authorId  String // the staff member who wrote it
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([guildId, userId])
+  @@index([guildId, createdAt])
 }
 
 // ---- Report relay ----

@@ -19,6 +19,11 @@ export type EditableSettings = Partial<
     | 'botPresenceType'
     | 'botPresenceText'
     | 'botPresenceUrl'
+    | 'rulesEnabled'
+    | 'rulesChannelId'
+    | 'rulesMessage'
+    | 'rulesRoleId'
+    | 'rulesButtonLabel'
   >
 >;
 

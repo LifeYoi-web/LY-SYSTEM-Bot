@@ -23,6 +23,7 @@ import {
   isTicketStaff,
 } from '../tickets';
 import { getTicketConfig, getTicketTypes } from '../../db/community';
+import { getSettings } from '../../db/settingsCache';
 import {
   getTempChannel,
   renameTempChannel,
@@ -166,6 +167,30 @@ async function handleGiveawayButton(interaction: ButtonInteraction): Promise<voi
   await interaction.reply({ content: inside ? '➖ خرجت من السحب.' : '🎉 دخلت السحب، بالتوفيق!', ...EPH });
 }
 
+async function handleRulesAccept(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const s = await getSettings(interaction.guild.id);
+  if (!s.rulesEnabled || !s.rulesRoleId) {
+    await interaction.reply({ content: '❌ نظام القوانين غير مُعدّ.', ...EPH });
+    return;
+  }
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) {
+    await interaction.reply({ content: '❌ تعذّر إيجاد عضويتك.', ...EPH });
+    return;
+  }
+  if (member.roles.cache.has(s.rulesRoleId)) {
+    await interaction.reply({ content: '✅ أنت موافق بالفعل.', ...EPH });
+    return;
+  }
+  try {
+    await member.roles.add(s.rulesRoleId, 'Rules accepted');
+    await interaction.reply({ content: '✅ تم منحك رتبة القبول. أهلًا فيك!', ...EPH });
+  } catch {
+    await interaction.reply({ content: '❌ تعذّر منح الرتبة — تأكد أن رتبة البوت أعلى من رتبة القبول.', ...EPH });
+  }
+}
+
 /* ---- temp voice room (Join-to-Create) handlers ---- */
 
 const TV_NOT_TEMP = '❌ هذا الزر للرومات الصوتية المؤقتة فقط.';
@@ -301,6 +326,7 @@ module.exports = {
       else if (id.startsWith('gw:')) await handleGiveawayButton(interaction).catch(() => undefined);
       else if (id.startsWith('sg:')) await handleSuggestionVote(interaction).catch(() => undefined);
       else if (id.startsWith('tv:')) await handleTempVoiceButton(interaction).catch(() => undefined);
+      else if (id === 'rules:accept') await handleRulesAccept(interaction).catch(() => undefined);
       return;
     }
 

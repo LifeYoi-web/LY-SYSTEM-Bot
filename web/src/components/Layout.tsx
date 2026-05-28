@@ -31,6 +31,8 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
       { to: '/dashboard/logs', label: 'السجلّات', icon: 'scroll' },
       { to: '/dashboard/tickets', label: 'التذاكر', icon: 'message' },
       { to: '/dashboard/report', label: 'البلاغات', icon: 'alert-triangle' },
+      { to: '/dashboard/notes', label: 'ملاحظات الأعضاء', icon: 'file-text' },
+      { to: '/dashboard/rules', label: 'قبول القوانين', icon: 'shield-check' },
     ],
   },
   {
@@ -82,6 +84,8 @@ const TITLES: Record<string, string> = {
   '/dashboard/announce': 'الإعلانات',
   '/dashboard/scheduled': 'الرسائل المجدولة',
   '/dashboard/tickets': 'نظام التذاكر',
+  '/dashboard/notes': 'ملاحظات الأعضاء',
+  '/dashboard/rules': 'قبول القوانين',
   '/dashboard/report': 'البلاغات',
   '/dashboard/suggestions': 'الاقتراحات',
   '/dashboard/giveaways': 'السحوبات',

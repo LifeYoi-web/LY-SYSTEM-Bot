@@ -31,6 +31,8 @@ import { StatCounters } from './pages/StatCounters';
 import { Reminders } from './pages/Reminders';
 import { Report } from './pages/Report';
 import { TempVoice } from './pages/TempVoice';
+import { Notes } from './pages/Notes';
+import { Rules } from './pages/Rules';
 import { BotControl } from './pages/BotControl';
 
 function Guarded({ children }: { children: ReactNode }) {
@@ -77,6 +79,8 @@ export default function App() {
           <Route path="reminders" element={<Reminders />} />
           <Route path="report" element={<Report />} />
           <Route path="tempvoice" element={<TempVoice />} />
+          <Route path="notes" element={<Notes />} />
+          <Route path="rules" element={<Rules />} />
           <Route path="bot" element={<BotControl />} />
           <Route path="welcome" element={<Welcome />} />
           <Route path="commands" element={<Commands />} />

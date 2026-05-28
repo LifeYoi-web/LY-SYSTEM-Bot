@@ -33,6 +33,8 @@ import { createStatCountersRouter } from './routes/statcounters';
 import { createRemindersRouter } from './routes/reminders';
 import { createReportRouter } from './routes/report';
 import { createTempVoiceRouter } from './routes/tempvoice';
+import { createNotesRouter } from './routes/notes';
+import { createRulesRouter } from './routes/rules';
 import { createBotRouter } from './routes/bot';
 import { requireStaff } from './middleware/requireStaff';
 import { rateLimit } from './middleware/rateLimit';
@@ -112,6 +114,8 @@ export function createApp(deps: ApiDeps): Express {
   app.use('/api/reminders', requireStaff(), createRemindersRouter(deps));
   app.use('/api/report', requireStaff(), createReportRouter(deps));
   app.use('/api/tempvoice', requireStaff(), createTempVoiceRouter(deps));
+  app.use('/api/notes', requireStaff(), createNotesRouter(deps));
+  app.use('/api/rules', requireStaff(), createRulesRouter(deps));
   app.use('/api/bot', requireStaff(), createBotRouter({ client: deps.client, config: deps.config }));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
