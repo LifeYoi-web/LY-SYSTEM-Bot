@@ -8,6 +8,7 @@ export const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
     GatewayIntentBits.GuildMessageReactions, // starboard
+    GatewayIntentBits.GuildVoiceStates, // temp voice rooms (join-to-create)
   ],
   // Partials let us receive reaction/message events on objects that aren't cached
   // (e.g. starboard reactions on older messages).

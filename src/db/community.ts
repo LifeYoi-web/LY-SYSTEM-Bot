@@ -7,6 +7,7 @@ import type {
   TicketType,
   BirthdayConfig,
   ReportConfig,
+  TempVoiceConfig,
   Highlight,
 } from '@prisma/client';
 
@@ -88,6 +89,13 @@ const reportCfg = singleRowCache<ReportConfig>(
 );
 export const getReportConfig = reportCfg.get;
 export const updateReportConfig = reportCfg.update;
+
+const tempVoiceCfg = singleRowCache<TempVoiceConfig>(
+  (g) => prisma.tempVoiceConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.tempVoiceConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getTempVoiceConfig = tempVoiceCfg.get;
+export const updateTempVoiceConfig = tempVoiceCfg.update;
 
 // ---- Highlights (cached list per guild) ----
 const hlCache = new Map<string, Highlight[]>();

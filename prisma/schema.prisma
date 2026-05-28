@@ -395,3 +395,24 @@ model ReportConfig {
   guildId   String  @id
   channelId String?
 }
+
+// ---- Temporary voice rooms (Join-to-Create) ----
+model TempVoiceConfig {
+  guildId          String  @id
+  enabled          Boolean @default(false)
+  hubChannelId     String? // the "Join to Create" voice channel
+  categoryId       String? // category to create temp channels under (optional)
+  nameTemplate     String  @default("روم {user}") // {user} = display name
+  defaultUserLimit Int     @default(0) // 0 = unlimited
+  defaultLocked    Boolean @default(false)
+}
+
+model TempVoiceChannel {
+  channelId String   @id
+  guildId   String
+  ownerId   String
+  createdAt DateTime @default(now())
+
+  @@index([guildId])
+  @@index([ownerId])
+}

@@ -125,6 +125,15 @@ export interface ReportConfig {
   guildId: string;
   channelId: string | null;
 }
+export interface TempVoiceConfig {
+  guildId: string;
+  enabled: boolean;
+  hubChannelId: string | null;
+  categoryId: string | null;
+  nameTemplate: string;
+  defaultUserLimit: number;
+  defaultLocked: boolean;
+}
 
 /* ============================ hooks ============================ */
 function invalidate(qc: ReturnType<typeof useQueryClient>, key: string) {
@@ -266,4 +275,15 @@ export const useReport = () => useQuery<ReportConfig>({ queryKey: ['report'], qu
 export function useUpdateReport() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (b: Partial<ReportConfig>) => apiPut('/report', b), onSuccess: invalidate(qc, 'report') });
+}
+
+// Temp voice rooms (Join-to-Create)
+export const useTempVoice = () =>
+  useQuery<{ config: TempVoiceConfig }>({ queryKey: ['tempvoice'], queryFn: () => api('/tempvoice') });
+export function useUpdateTempVoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (b: Partial<TempVoiceConfig>) => apiPut('/tempvoice/config', b),
+    onSuccess: invalidate(qc, 'tempvoice'),
+  });
 }

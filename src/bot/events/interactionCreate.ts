@@ -2,8 +2,14 @@ import {
   Interaction,
   Collection,
   MessageFlags,
+  ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   type ButtonInteraction,
   type StringSelectMenuInteraction,
+  type UserSelectMenuInteraction,
+  type ModalSubmitInteraction,
 } from 'discord.js';
 import { prisma } from '../../db/prisma';
 import { logger } from '../../shared/logger';
@@ -17,6 +23,14 @@ import {
   isTicketStaff,
 } from '../tickets';
 import { getTicketConfig, getTicketTypes } from '../../db/community';
+import {
+  getTempChannel,
+  renameTempChannel,
+  setTempLimit,
+  toggleLockTemp,
+  kickFromTemp,
+  claimTemp,
+} from '../tempvoice';
 import { buildSuggestionMessage } from '../suggestions';
 
 const EPH = { flags: MessageFlags.Ephemeral } as const;
@@ -152,6 +166,111 @@ async function handleGiveawayButton(interaction: ButtonInteraction): Promise<voi
   await interaction.reply({ content: inside ? '➖ خرجت من السحب.' : '🎉 دخلت السحب، بالتوفيق!', ...EPH });
 }
 
+/* ---- temp voice room (Join-to-Create) handlers ---- */
+
+const TV_NOT_TEMP = '❌ هذا الزر للرومات الصوتية المؤقتة فقط.';
+const TV_NOT_OWNER = '❌ مالك الروم فقط يقدر يستخدم هذا الزر.';
+
+async function handleTempVoiceButton(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const temp = await getTempChannel(prisma, interaction.channelId);
+  if (!temp) {
+    await interaction.reply({ content: TV_NOT_TEMP, ...EPH });
+    return;
+  }
+  const id = interaction.customId;
+
+  if (id === 'tv:rename') {
+    if (temp.ownerId !== interaction.user.id) {
+      await interaction.reply({ content: TV_NOT_OWNER, ...EPH });
+      return;
+    }
+    const modal = new ModalBuilder().setCustomId('tv:rename:submit').setTitle('إعادة تسمية الروم').addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('name')
+          .setLabel('الاسم الجديد')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(95),
+      ),
+    );
+    await interaction.showModal(modal);
+    return;
+  }
+
+  if (id === 'tv:togglelock') {
+    if (temp.ownerId !== interaction.user.id) {
+      await interaction.reply({ content: TV_NOT_OWNER, ...EPH });
+      return;
+    }
+    const locked = await toggleLockTemp(interaction.guild, prisma, interaction.channelId);
+    await interaction.reply({ content: locked ? '🔒 تم قفل الروم.' : '🔓 تم فتح الروم.', ...EPH });
+    return;
+  }
+
+  if (id === 'tv:claim') {
+    const ok = await claimTemp(interaction.guild, prisma, interaction.channelId, interaction.user.id);
+    await interaction.reply({
+      content: ok ? '🙋 صرت مالك الروم.' : '❌ تعذّر الاستلام — لا يمكن الاستلام والمالك الحالي موجود في الروم.',
+      ...EPH,
+    });
+    return;
+  }
+}
+
+async function handleTempVoiceLimit(interaction: StringSelectMenuInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const temp = await getTempChannel(prisma, interaction.channelId);
+  if (!temp) {
+    await interaction.reply({ content: TV_NOT_TEMP, ...EPH });
+    return;
+  }
+  if (temp.ownerId !== interaction.user.id) {
+    await interaction.reply({ content: TV_NOT_OWNER, ...EPH });
+    return;
+  }
+  const limit = Number(interaction.values[0]) || 0;
+  await setTempLimit(interaction.guild, prisma, interaction.channelId, limit);
+  await interaction.reply({ content: limit === 0 ? '👥 شلت الحد.' : `👥 الحد الجديد: ${limit}.`, ...EPH });
+}
+
+async function handleTempVoiceKick(interaction: UserSelectMenuInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const temp = await getTempChannel(prisma, interaction.channelId);
+  if (!temp) {
+    await interaction.reply({ content: TV_NOT_TEMP, ...EPH });
+    return;
+  }
+  if (temp.ownerId !== interaction.user.id) {
+    await interaction.reply({ content: TV_NOT_OWNER, ...EPH });
+    return;
+  }
+  const target = interaction.values[0];
+  const ok = await kickFromTemp(interaction.guild, prisma, interaction.channelId, target);
+  await interaction.reply({
+    content: ok ? `👢 طردت <@${target}> من الروم.` : '❌ تعذّر الطرد — ما تقدر تطرد نفسك من ملكية الروم.',
+    allowedMentions: { parse: [] },
+    ...EPH,
+  });
+}
+
+async function handleTempVoiceRenameSubmit(interaction: ModalSubmitInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const temp = await getTempChannel(prisma, interaction.channelId ?? '');
+  if (!temp) {
+    await interaction.reply({ content: TV_NOT_TEMP, ...EPH });
+    return;
+  }
+  if (temp.ownerId !== interaction.user.id) {
+    await interaction.reply({ content: TV_NOT_OWNER, ...EPH });
+    return;
+  }
+  const name = interaction.fields.getTextInputValue('name');
+  await renameTempChannel(interaction.guild, prisma, temp.channelId, name);
+  await interaction.reply({ content: '✏️ تم تغيير اسم الروم.', ...EPH });
+}
+
 async function handleSuggestionVote(interaction: ButtonInteraction): Promise<void> {
   const [, dir, id] = interaction.customId.split(':'); // sg:up:<id>
   const s = await prisma.suggestion.findUnique({ where: { id } });
@@ -181,11 +300,23 @@ module.exports = {
       else if (id.startsWith('ticket:')) await handleTicketButton(interaction).catch(() => undefined);
       else if (id.startsWith('gw:')) await handleGiveawayButton(interaction).catch(() => undefined);
       else if (id.startsWith('sg:')) await handleSuggestionVote(interaction).catch(() => undefined);
+      else if (id.startsWith('tv:')) await handleTempVoiceButton(interaction).catch(() => undefined);
       return;
     }
 
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId === 'ticket:type') await handleTicketSelect(interaction).catch(() => undefined);
+      else if (interaction.customId === 'tv:limit') await handleTempVoiceLimit(interaction).catch(() => undefined);
+      return;
+    }
+
+    if (interaction.isUserSelectMenu()) {
+      if (interaction.customId === 'tv:kick') await handleTempVoiceKick(interaction).catch(() => undefined);
+      return;
+    }
+
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId === 'tv:rename:submit') await handleTempVoiceRenameSubmit(interaction).catch(() => undefined);
       return;
     }
 

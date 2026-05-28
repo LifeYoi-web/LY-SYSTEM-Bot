@@ -43,6 +43,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
       { to: '/dashboard/starboard', label: 'المميّز', icon: 'eye' },
       { to: '/dashboard/counting', label: 'لعبة العدّ', icon: 'activity' },
       { to: '/dashboard/birthdays', label: 'أعياد الميلاد', icon: 'calendar' },
+      { to: '/dashboard/tempvoice', label: 'الرومات الصوتية', icon: 'mic' },
     ],
   },
   {
@@ -87,6 +88,7 @@ const TITLES: Record<string, string> = {
   '/dashboard/starboard': 'لوحة المميّز',
   '/dashboard/counting': 'لعبة العدّ',
   '/dashboard/birthdays': 'أعياد الميلاد',
+  '/dashboard/tempvoice': 'الرومات الصوتية المؤقتة',
   '/dashboard/tags': 'التاجات',
   '/dashboard/sticky': 'الرسائل المثبّتة',
   '/dashboard/reminders': 'التذكيرات',
