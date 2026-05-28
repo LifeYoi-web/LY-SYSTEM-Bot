@@ -43,10 +43,10 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
       data.staffRoleIds = b.staffRoleIds.map(String);
     }
 
-    for (const k of ['welcomeEnabled', 'goodbyeEnabled'] as const) {
+    for (const k of ['welcomeEnabled', 'goodbyeEnabled', 'welcomeUseCard', 'goodbyeUseCard', 'welcomeDmEnabled'] as const) {
       if (b[k] !== undefined) data[k] = Boolean(b[k]);
     }
-    for (const k of ['welcomeMessage', 'goodbyeMessage'] as const) {
+    for (const k of ['welcomeMessage', 'goodbyeMessage', 'welcomeDmMessage'] as const) {
       if (b[k] !== undefined) {
         const s = optStr(b[k]);
         if (s && s.length > MAX_MESSAGE) {
@@ -54,6 +54,42 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
         }
         data[k] = s;
       }
+    }
+    if (b.welcomeMentionDeleteSeconds !== undefined) {
+      const n = Number(b.welcomeMentionDeleteSeconds);
+      if (!Number.isFinite(n) || n < 0 || n > 60) {
+        return res.status(400).json({ error: 'welcomeMentionDeleteSeconds must be 0..60' });
+      }
+      data.welcomeMentionDeleteSeconds = Math.floor(n);
+    }
+    if (b.welcomeCardBg !== undefined) {
+      const v = optStr(b.welcomeCardBg);
+      if (v) {
+        if (!v.startsWith('data:image/')) {
+          return res.status(400).json({ error: 'welcomeCardBg must be a data:image/* URL' });
+        }
+        if (v.length > 2_200_000) {
+          return res.status(400).json({ error: 'welcomeCardBg too large (max ~1.5MB)' });
+        }
+      }
+      data.welcomeCardBg = v;
+    }
+    if (b.welcomeButtons !== undefined) {
+      if (!Array.isArray(b.welcomeButtons)) {
+        return res.status(400).json({ error: 'welcomeButtons must be an array' });
+      }
+      if (b.welcomeButtons.length > 5) {
+        return res.status(400).json({ error: 'welcomeButtons supports at most 5 entries' });
+      }
+      for (const raw of b.welcomeButtons) {
+        if (!raw || typeof raw !== 'object') return res.status(400).json({ error: 'invalid button shape' });
+        const o = raw as Record<string, unknown>;
+        const label = typeof o.label === 'string' ? o.label.trim() : '';
+        const url = typeof o.url === 'string' ? o.url.trim() : '';
+        if (!label || label.length > 80) return res.status(400).json({ error: 'button label required (≤80 chars)' });
+        if (!/^https?:\/\//.test(url)) return res.status(400).json({ error: 'button url must be http(s)' });
+      }
+      data.welcomeButtons = b.welcomeButtons;
     }
 
     const updated = await updateSettings(deps.config.guildId, data);

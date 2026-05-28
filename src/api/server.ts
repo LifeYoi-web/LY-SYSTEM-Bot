@@ -60,7 +60,9 @@ export function createApp(deps: ApiDeps): Express {
       },
     }),
   );
-  app.use(express.json());
+  // The welcome-card background upload is base64 data (cap ~1.5 MB binary ≈ 2 MB string),
+  // so the body parser needs headroom over the 100kb default.
+  app.use(express.json({ limit: '4mb' }));
 
   const PgStore = connectPgSimple(session);
   app.use(

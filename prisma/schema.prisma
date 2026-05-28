@@ -28,6 +28,14 @@ model GuildSettings {
   rulesMessage   String?
   rulesRoleId    String?
   rulesButtonLabel String?      // override default "أوافق على القوانين"
+  // Premium welcome / goodbye (luxury embed + optional rendered card image)
+  welcomeUseCard            Boolean @default(true)
+  welcomeCardBg             String? // base64 data URL for a custom card background (cap ~1.5MB)
+  welcomeButtons            Json    @default("[]") // [{ label, url, emoji? }]
+  welcomeDmEnabled          Boolean @default(false)
+  welcomeDmMessage          String?
+  welcomeMentionDeleteSeconds Int   @default(0) // 0 = leave the ping, otherwise delete after N seconds
+  goodbyeUseCard            Boolean @default(false)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   autoMod        AutoModConfig?

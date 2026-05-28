@@ -69,6 +69,11 @@ export interface MemberDetail {
   stats: { total: number; active: number; byType: Record<string, number> };
 }
 
+export interface WelcomeButton {
+  label: string;
+  url: string;
+  emoji?: string;
+}
 export interface Settings {
   guildId: string;
   language: string;
@@ -80,6 +85,14 @@ export interface Settings {
   goodbyeEnabled: boolean;
   goodbyeMessage: string | null;
   autoRoleId: string | null;
+  // Premium welcome / goodbye
+  welcomeUseCard: boolean;
+  welcomeCardBg: string | null;
+  welcomeButtons: WelcomeButton[];
+  welcomeDmEnabled: boolean;
+  welcomeDmMessage: string | null;
+  welcomeMentionDeleteSeconds: number;
+  goodbyeUseCard: boolean;
 }
 
 export interface AutoMod {

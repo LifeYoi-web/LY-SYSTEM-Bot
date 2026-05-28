@@ -24,6 +24,13 @@ export type EditableSettings = Partial<
     | 'rulesMessage'
     | 'rulesRoleId'
     | 'rulesButtonLabel'
+    | 'welcomeUseCard'
+    | 'welcomeCardBg'
+    | 'welcomeButtons'
+    | 'welcomeDmEnabled'
+    | 'welcomeDmMessage'
+    | 'welcomeMentionDeleteSeconds'
+    | 'goodbyeUseCard'
   >
 >;
 
@@ -51,7 +58,13 @@ export async function updateSettings(
   guildId: string,
   data: EditableSettings,
 ): Promise<GuildSettings> {
-  const settings = await prisma.guildSettings.update({ where: { guildId }, data });
+  // The `welcomeButtons` Json column needs Prisma's InputJsonValue (which rejects plain `null` in
+  // favor of the JsonNull sentinel), while EditableSettings derives the symmetric read type.
+  // The route validates the shape, so we widen here rather than threading the asymmetric type out.
+  const settings = await prisma.guildSettings.update({
+    where: { guildId },
+    data: data as Parameters<typeof prisma.guildSettings.update>[0]['data'],
+  });
   cache.set(guildId, settings);
   return settings;
 }
