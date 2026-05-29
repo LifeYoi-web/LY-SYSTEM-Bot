@@ -4,6 +4,7 @@ import { getSettings } from '../../db/settingsCache';
 import { buildPresence } from '../presence';
 import { prisma } from '../../db/prisma';
 import { reconcileTempVoice } from '../tempvoice';
+import { getMusicManager } from '../music/manager';
 
 module.exports = {
   name: 'ready',
@@ -30,5 +31,14 @@ module.exports = {
     // Prune orphaned temp voice rooms (created last session, never cleaned because the bot
     // restarted before the channels emptied).
     await reconcileTempVoice(client, prisma).catch((err) => logger.warning(`tempvoice reconcile failed: ${err}`));
+
+    // Connect to the Lavalink node (no-op if music is disabled). Never blocks/aborts startup.
+    const music = getMusicManager();
+    if (music && client.user) {
+      await music
+        .init({ id: client.user.id, username: client.user.username })
+        .then(() => logger.success('Music: Lavalink init sent.'))
+        .catch((err) => logger.warning(`Music: Lavalink init failed (continuing): ${err}`));
+    }
   },
 };

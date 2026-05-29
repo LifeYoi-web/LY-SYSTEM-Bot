@@ -1,0 +1,49 @@
+# Lavalink v4 config for the LY-SYSTEM music feature. Run this on your VPS (NOT on Railway).
+# Change the password, then point the bot at it via LAVALINK_HOST/PORT/PASSWORD on Railway.
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    # YouTube is no longer built into Lavalink — this plugin provides it.
+    # Check the latest version: https://github.com/lavalink-devs/youtube-source/releases
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.0"
+      repository: "https://maven.lavalink.dev/releases"
+  server:
+    password: "CHANGE_ME_TO_A_STRONG_PASSWORD"
+    sources:
+      youtube: false # handled by the plugin below, not the deprecated built-in source
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    # Client mix that currently survives YouTube bot-detection best. Adjust if playback breaks.
+    clients: ["MUSIC", "ANDROID_VR", "WEB", "WEBEMBEDDED"]
+    # STRONGLY recommended for reliability from a server IP — enable OAuth (see README.md):
+    # oauth:
+    #   enabled: true
+    #   refreshToken: "paste-the-refresh-token-printed-in-the-logs-on-first-run"
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO

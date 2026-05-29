@@ -13,6 +13,11 @@ export interface AppConfig {
   rapidApiKey?: string;
   /** Optional: RapidAPI TikTok host (defaults to the tiktok-scraper7 provider). */
   rapidApiTikTokHost?: string;
+  /** Optional: external Lavalink node enabling the music feature. Absent => music stays off. */
+  lavalinkHost?: string;
+  lavalinkPort?: number;
+  lavalinkPassword?: string;
+  lavalinkSecure?: boolean;
 }
 
 const REQUIRED = [
@@ -38,5 +43,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     isProd: env.NODE_ENV === 'production',
     rapidApiKey: env.RAPIDAPI_KEY || undefined,
     rapidApiTikTokHost: env.RAPIDAPI_TIKTOK_HOST || undefined,
+    lavalinkHost: env.LAVALINK_HOST || undefined,
+    lavalinkPort: env.LAVALINK_PORT ? Number(env.LAVALINK_PORT) : undefined,
+    lavalinkPassword: env.LAVALINK_PASSWORD || undefined,
+    lavalinkSecure: env.LAVALINK_SECURE === 'true',
   };
 }

@@ -23,6 +23,7 @@
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "helmet": "^8.2.0",
+    "lavalink-client": "^2.10.2",
     "pg": "^8.21.0"
   },
   "devDependencies": {

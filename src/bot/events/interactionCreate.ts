@@ -33,6 +33,7 @@ import {
   claimTemp,
 } from '../tempvoice';
 import { buildSuggestionMessage } from '../suggestions';
+import { handleMusicButton } from '../music/buttons';
 
 const EPH = { flags: MessageFlags.Ephemeral } as const;
 
@@ -326,6 +327,7 @@ module.exports = {
       else if (id.startsWith('gw:')) await handleGiveawayButton(interaction).catch(() => undefined);
       else if (id.startsWith('sg:')) await handleSuggestionVote(interaction).catch(() => undefined);
       else if (id.startsWith('tv:')) await handleTempVoiceButton(interaction).catch(() => undefined);
+      else if (id.startsWith('mu:')) await handleMusicButton(interaction).catch(() => undefined);
       else if (id === 'rules:accept') await handleRulesAccept(interaction).catch(() => undefined);
       return;
     }

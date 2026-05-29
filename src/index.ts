@@ -7,6 +7,7 @@ import { prisma } from './db/prisma';
 import { ensureGuildSettings } from './db/settingsCache';
 import { startApiServer } from './api/server';
 import { startScheduler } from './bot/scheduler';
+import { initMusicManager } from './bot/music/manager';
 import { boot } from './boot';
 
 async function main() {
@@ -14,6 +15,9 @@ async function main() {
 
   const commands = loadCommands();
   loadEvents(client, commands);
+
+  // Build the music manager (gated: no-op without LAVALINK_*). Must exist before `ready` fires.
+  initMusicManager(client, config);
 
   await boot({
     guildId: config.guildId,
