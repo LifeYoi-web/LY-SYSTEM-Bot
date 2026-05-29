@@ -34,6 +34,7 @@ import { TempVoice } from './pages/TempVoice';
 import { Notes } from './pages/Notes';
 import { Rules } from './pages/Rules';
 import { BotControl } from './pages/BotControl';
+import { CreatorAnnounce } from './pages/CreatorAnnounce';
 
 function Guarded({ children }: { children: ReactNode }) {
   const { data, isLoading, isError } = useMe();
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="autoresponder" element={<AutoResponder />} />
           <Route path="announce" element={<Announce />} />
           <Route path="scheduled" element={<Scheduled />} />
+          <Route path="creatorannounce" element={<CreatorAnnounce />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="giveaways" element={<Giveaways />} />
           <Route path="starboard" element={<Starboard />} />

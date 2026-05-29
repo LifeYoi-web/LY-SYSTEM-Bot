@@ -444,3 +444,23 @@ model TempVoiceChannel {
   @@index([guildId])
   @@index([ownerId])
 }
+
+// ---- Creator content announcements (auto-ping when a new YouTube/TikTok video drops) ----
+model CreatorAnnounceConfig {
+  guildId         String  @id
+  enabled         Boolean @default(false)
+  channelId       String? // where announcements are posted
+  pingMode        String  @default("everyone") // everyone | here | role | none
+  pingRoleId      String? // used when pingMode == "role"
+  messageTemplate String? // {title} {url} {platform} {creator}; null => built-in Arabic default
+  // YouTube — detected free via the channel's Atom RSS feed (no API key)
+  youtubeEnabled     Boolean   @default(false)
+  youtubeChannelId   String? // resolved UC… id
+  youtubeLastVideoId String? // last announced video id (null => baseline, announce nothing)
+  lastPolledYt       DateTime?
+  // TikTok — best-effort via a RapidAPI scraper (key in env, not DB)
+  tiktokEnabled     Boolean   @default(false)
+  tiktokUsername    String? // without leading @
+  tiktokLastVideoId String?
+  lastPolledTt      DateTime?
+}

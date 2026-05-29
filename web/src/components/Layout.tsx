@@ -52,6 +52,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     title: 'المحتوى',
     items: [
       { to: '/dashboard/announce', label: 'الإعلانات', icon: 'megaphone' },
+      { to: '/dashboard/creatorannounce', label: 'إشعارات المقاطع', icon: 'video' },
       { to: '/dashboard/autoresponder', label: 'الردود التلقائية', icon: 'message' },
       { to: '/dashboard/tags', label: 'التاجات', icon: 'hash' },
       { to: '/dashboard/sticky', label: 'الرسائل المثبّتة', icon: 'bell' },
@@ -82,6 +83,7 @@ const TITLES: Record<string, string> = {
   '/dashboard/roles': 'رتب الأزرار',
   '/dashboard/autoresponder': 'الردود التلقائية',
   '/dashboard/announce': 'الإعلانات',
+  '/dashboard/creatorannounce': 'إشعارات المقاطع الجديدة',
   '/dashboard/scheduled': 'الرسائل المجدولة',
   '/dashboard/tickets': 'نظام التذاكر',
   '/dashboard/notes': 'ملاحظات الأعضاء',

@@ -134,6 +134,18 @@ export interface TempVoiceConfig {
   defaultUserLimit: number;
   defaultLocked: boolean;
 }
+export interface CreatorAnnounceConfig {
+  guildId: string;
+  enabled: boolean;
+  channelId: string | null;
+  pingMode: string; // everyone | here | role | none
+  pingRoleId: string | null;
+  messageTemplate: string | null;
+  youtubeEnabled: boolean;
+  youtubeChannelId: string | null;
+  tiktokEnabled: boolean;
+  tiktokUsername: string | null;
+}
 
 /* ============================ hooks ============================ */
 function invalidate(qc: ReturnType<typeof useQueryClient>, key: string) {
@@ -286,4 +298,18 @@ export function useUpdateTempVoice() {
     mutationFn: (b: Partial<TempVoiceConfig>) => apiPut('/tempvoice/config', b),
     onSuccess: invalidate(qc, 'tempvoice'),
   });
+}
+
+// Creator content announcements (YouTube / TikTok new uploads)
+export const useCreatorAnnounce = () =>
+  useQuery<{ config: CreatorAnnounceConfig }>({ queryKey: ['creatorannounce'], queryFn: () => api('/creatorannounce') });
+export function useUpdateCreatorAnnounce() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (b: Partial<CreatorAnnounceConfig>) => apiPut('/creatorannounce/config', b),
+    onSuccess: invalidate(qc, 'creatorannounce'),
+  });
+}
+export function useTestCreatorAnnounce() {
+  return useMutation({ mutationFn: () => apiPost('/creatorannounce/test') });
 }

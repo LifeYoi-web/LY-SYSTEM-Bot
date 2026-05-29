@@ -9,6 +9,10 @@ export interface AppConfig {
   oauthRedirectUri: string;
   port: number;
   isProd: boolean;
+  /** Optional: RapidAPI key enabling the TikTok creator-announce source. Absent => TikTok stays off. */
+  rapidApiKey?: string;
+  /** Optional: RapidAPI TikTok host (defaults to the tiktok-scraper7 provider). */
+  rapidApiTikTokHost?: string;
 }
 
 const REQUIRED = [
@@ -32,5 +36,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     oauthRedirectUri: env.OAUTH_REDIRECT_URI!,
     port: Number(env.PORT ?? 3000),
     isProd: env.NODE_ENV === 'production',
+    rapidApiKey: env.RAPIDAPI_KEY || undefined,
+    rapidApiTikTokHost: env.RAPIDAPI_TIKTOK_HOST || undefined,
   };
 }

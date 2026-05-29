@@ -8,6 +8,7 @@ import type {
   BirthdayConfig,
   ReportConfig,
   TempVoiceConfig,
+  CreatorAnnounceConfig,
   Highlight,
 } from '@prisma/client';
 
@@ -96,6 +97,14 @@ const tempVoiceCfg = singleRowCache<TempVoiceConfig>(
 );
 export const getTempVoiceConfig = tempVoiceCfg.get;
 export const updateTempVoiceConfig = tempVoiceCfg.update;
+
+const creatorAnnounceCfg = singleRowCache<CreatorAnnounceConfig>(
+  (g) => prisma.creatorAnnounceConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.creatorAnnounceConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getCreatorAnnounceConfig = creatorAnnounceCfg.get;
+export const updateCreatorAnnounceConfig = creatorAnnounceCfg.update;
+export const invalidateCreatorAnnounceConfig = creatorAnnounceCfg.invalidate;
 
 // ---- Highlights (cached list per guild) ----
 const hlCache = new Map<string, Highlight[]>();

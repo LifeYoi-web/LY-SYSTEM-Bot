@@ -36,6 +36,7 @@ import { createTempVoiceRouter } from './routes/tempvoice';
 import { createNotesRouter } from './routes/notes';
 import { createRulesRouter } from './routes/rules';
 import { createBotRouter } from './routes/bot';
+import { createCreatorAnnounceRouter } from './routes/creatorannounce';
 import { requireStaff } from './middleware/requireStaff';
 import { rateLimit } from './middleware/rateLimit';
 
@@ -119,6 +120,12 @@ export function createApp(deps: ApiDeps): Express {
   app.use('/api/notes', requireStaff(), createNotesRouter(deps));
   app.use('/api/rules', requireStaff(), createRulesRouter(deps));
   app.use('/api/bot', requireStaff(), createBotRouter({ client: deps.client, config: deps.config }));
+  app.use(
+    '/api/creatorannounce',
+    requireStaff(),
+    rateLimit({ windowMs: 60_000, max: 20 }),
+    createCreatorAnnounceRouter(deps),
+  );
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));

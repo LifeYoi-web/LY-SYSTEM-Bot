@@ -20,7 +20,14 @@ async function main() {
     login: () => client.login(config.discordToken),
     ensureGuildSettings,
     startApiServer: () => startApiServer({ client, prisma, config }),
-    startScheduler: () => startScheduler({ client, prisma, guildId: config.guildId }),
+    startScheduler: () =>
+      startScheduler({
+        client,
+        prisma,
+        guildId: config.guildId,
+        rapidApiKey: config.rapidApiKey,
+        rapidApiTikTokHost: config.rapidApiTikTokHost,
+      }),
     registerCommands: () => registerCommands(commands, config.discordToken, config.clientId, config.guildId),
     logError: (msg) => logger.error(msg),
   });

@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { liftCase, type ActionDeps, type GuildLike } from './moderation/actions';
 import { flushStats } from './stats';
 import { endDueGiveaways, fireDueReminders, announceBirthdays, refreshStatCounters } from './scheduler-tasks';
+import { pollCreatorContent } from './creator/poll';
 import { logger } from '../shared/logger';
 
 export async function liftExpiredCases(deps: ActionDeps): Promise<number> {
@@ -19,6 +20,9 @@ export interface SchedulerDeps {
   client: Client;
   prisma: PrismaClient;
   guildId: string;
+  /** Optional RapidAPI creds enabling the TikTok creator-announce source. */
+  rapidApiKey?: string;
+  rapidApiTikTokHost?: string;
 }
 
 /** Next fire time for a repeating schedule, or null for a one-off. Skips past missed runs. */
@@ -69,6 +73,13 @@ export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS
     // Time-based community tasks.
     await endDueGiveaways(deps).catch((err) => logger.error(`Giveaway end error: ${err}`));
     await fireDueReminders(deps).catch((err) => logger.error(`Reminder error: ${err}`));
+
+    // Creator content (YouTube/TikTok new uploads). Self-throttles per source inside the task.
+    const newVids = await pollCreatorContent(deps).catch((err) => {
+      logger.error(`Creator poll error: ${err}`);
+      return 0;
+    });
+    if (newVids > 0) logger.info(`Scheduler announced ${newVids} new creator upload(s)`);
 
     // Stat-counter channels: throttled to ~10 min (Discord rate-limits channel renames).
     if (Date.now() - lastStatRefresh > 600_000) {
