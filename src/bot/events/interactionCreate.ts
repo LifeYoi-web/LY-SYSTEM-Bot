@@ -2,6 +2,7 @@ import {
   Interaction,
   Collection,
   MessageFlags,
+  PermissionFlagsBits,
   ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
@@ -34,8 +35,79 @@ import {
 } from '../tempvoice';
 import { buildSuggestionMessage } from '../suggestions';
 import { handleMusicButton } from '../music/buttons';
+import { buildApplyModal, submitApplication, decideApplication } from '../applications';
+import { buyItem, BUY_ERRORS } from '../shop';
 
 const EPH = { flags: MessageFlags.Ephemeral } as const;
+
+/** Generic staff check (Manage Server, or a configured staff role) for non-ticket actions. */
+async function isGuildStaff(interaction: ButtonInteraction): Promise<boolean> {
+  if (!interaction.guild) return false;
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) return false;
+  if (member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
+  const s = await getSettings(interaction.guild.id).catch(() => null);
+  return Boolean(s?.staffRoleIds.some((id) => member.roles.cache.has(id)));
+}
+
+async function handleApplicationButton(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const [, action, arg] = interaction.customId.split(':'); // app:start|accept|deny:<id>
+  if (action === 'start') {
+    const modal = await buildApplyModal(prisma, arg);
+    if (!modal) {
+      await interaction.reply({ content: '❌ هذا النموذج غير متاح حاليًا.', ...EPH });
+      return;
+    }
+    await interaction.showModal(modal);
+    return;
+  }
+  if (action === 'accept' || action === 'deny') {
+    if (!(await isGuildStaff(interaction))) {
+      await interaction.reply({ content: '❌ مراجعة الطلبات للإدارة فقط.', ...EPH });
+      return;
+    }
+    const res = await decideApplication(interaction.guild, prisma, arg, interaction.user.id, action === 'accept');
+    if (!res.ok) {
+      await interaction.reply({ content: '❌ تمت معالجة هذا الطلب مسبقًا.', ...EPH });
+      return;
+    }
+    await interaction.update({ components: [] }).catch(() => undefined);
+    await interaction
+      .followUp({
+        content: action === 'accept' ? `✅ تم قبول طلب <@${res.userId}>.` : `✖️ تم رفض طلب <@${res.userId}>.`,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => undefined);
+  }
+}
+
+async function handleApplicationModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const formId = interaction.customId.slice('app:submit:'.length);
+  await interaction.deferReply(EPH);
+  const ok = await submitApplication(interaction.guild, prisma, formId, interaction.user.id, (qid) => {
+    try {
+      return interaction.fields.getTextInputValue(qid);
+    } catch {
+      return '';
+    }
+  });
+  await interaction.editReply(ok ? '✅ تم إرسال طلبك! سيراجعه الفريق قريبًا.' : '❌ تعذّر إرسال الطلب.');
+}
+
+async function handleShopButton(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  const itemId = interaction.customId.slice('shop:buy:'.length);
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) {
+    await interaction.reply({ content: '❌ تعذّر إيجاد عضويتك.', ...EPH });
+    return;
+  }
+  await interaction.deferReply(EPH);
+  const res = await buyItem(interaction.guild, prisma, member, itemId);
+  await interaction.editReply(res.ok ? `✅ تم شراء <@&${res.item.roleId}> بنجاح!` : BUY_ERRORS[res.reason]);
+}
 
 async function handleRoleButton(interaction: ButtonInteraction): Promise<void> {
   const roleId = interaction.customId.slice(3); // strip "rr:"
@@ -328,6 +400,8 @@ module.exports = {
       else if (id.startsWith('sg:')) await handleSuggestionVote(interaction).catch(() => undefined);
       else if (id.startsWith('tv:')) await handleTempVoiceButton(interaction).catch(() => undefined);
       else if (id.startsWith('mu:')) await handleMusicButton(interaction).catch(() => undefined);
+      else if (id.startsWith('app:')) await handleApplicationButton(interaction).catch(() => undefined);
+      else if (id.startsWith('shop:buy:')) await handleShopButton(interaction).catch(() => undefined);
       else if (id === 'rules:accept') await handleRulesAccept(interaction).catch(() => undefined);
       return;
     }
@@ -345,6 +419,7 @@ module.exports = {
 
     if (interaction.isModalSubmit()) {
       if (interaction.customId === 'tv:rename:submit') await handleTempVoiceRenameSubmit(interaction).catch(() => undefined);
+      else if (interaction.customId.startsWith('app:submit:')) await handleApplicationModal(interaction).catch(() => undefined);
       return;
     }
 

@@ -21,6 +21,9 @@ export type EditableAutoMod = Partial<
     | 'muteSeconds'
     | 'ignoredChannelIds'
     | 'ignoredRoleIds'
+    | 'antiScam'
+    | 'scamDomains'
+    | 'scamAction'
   >
 >;
 

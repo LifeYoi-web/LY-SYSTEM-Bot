@@ -15,27 +15,24 @@ interface RoleEditable {
   roles: { cache: { has: (id: string) => boolean }; add: (id: string) => Promise<unknown>; remove: (id: string) => Promise<unknown> };
 }
 
-export async function awardMessageXp(
+/**
+ * Increment a member's XP by `gain`, apply level-up + role rewards, and report the result.
+ * Shared by message XP (with a cooldown gate) and the voice-activity sweep.
+ */
+export async function applyXpGain(
   prisma: PrismaClient,
   guildId: string,
   userId: string,
   member: RoleEditable | null,
   cfg: LevelConfig,
-  now = Date.now(),
+  gain: number,
+  extra: Record<string, unknown> = {},
 ): Promise<XpResult> {
-  const key = `${guildId}:${userId}`;
-  const last = cooldown.get(key) ?? 0;
-  if (now - last < cfg.cooldownSeconds * 1000) return { awarded: false, leveledUp: false, level: 0 };
-  cooldown.set(key, now);
-  if (cooldown.size > 20_000) {
-    for (const [k, t] of cooldown) if (now - t > 3_600_000) cooldown.delete(k);
-  }
-
-  const gain = Math.max(1, cfg.xpPerMessage * cfg.multiplier);
+  if (gain <= 0) return { awarded: false, leveledUp: false, level: 0 };
   const row = await prisma.memberLevel.upsert({
     where: { guildId_userId: { guildId, userId } },
-    create: { guildId, userId, xp: gain, level: levelFromXp(gain), lastMessageAt: new Date(now) },
-    update: { xp: { increment: gain }, lastMessageAt: new Date(now) },
+    create: { guildId, userId, xp: gain, level: levelFromXp(gain), ...extra },
+    update: { xp: { increment: gain }, ...extra },
   });
 
   const newLevel = levelFromXp(row.xp);
@@ -58,6 +55,26 @@ export async function awardMessageXp(
     }
   }
   return { awarded: true, leveledUp: true, level: newLevel };
+}
+
+export async function awardMessageXp(
+  prisma: PrismaClient,
+  guildId: string,
+  userId: string,
+  member: RoleEditable | null,
+  cfg: LevelConfig,
+  now = Date.now(),
+): Promise<XpResult> {
+  const key = `${guildId}:${userId}`;
+  const last = cooldown.get(key) ?? 0;
+  if (now - last < cfg.cooldownSeconds * 1000) return { awarded: false, leveledUp: false, level: 0 };
+  cooldown.set(key, now);
+  if (cooldown.size > 20_000) {
+    for (const [k, t] of cooldown) if (now - t > 3_600_000) cooldown.delete(k);
+  }
+
+  const gain = Math.max(1, cfg.xpPerMessage * cfg.multiplier);
+  return applyXpGain(prisma, guildId, userId, member, cfg, gain, { lastMessageAt: new Date(now) });
 }
 
 export function _resetXpCooldown(): void {

@@ -93,6 +93,10 @@ export interface Settings {
   welcomeDmMessage: string | null;
   welcomeMentionDeleteSeconds: number;
   goodbyeUseCard: boolean;
+  // Account-age / alt gate on join
+  minAccountAgeDays: number;
+  altGateAction: string; // kick | quarantine | alert
+  quarantineRoleId: string | null;
 }
 
 export interface AutoMod {
@@ -107,6 +111,9 @@ export interface AutoMod {
   muteSeconds: number;
   ignoredChannelIds: string[];
   ignoredRoleIds: string[];
+  antiScam: boolean;
+  scamDomains: string[];
+  scamAction: string;
 }
 
 export interface LogEntry {
@@ -183,6 +190,9 @@ export interface LevelConfig {
   levelUpChannelId: string | null;
   levelUpMessage: string | null;
   stackRewards: boolean;
+  voiceXpEnabled: boolean;
+  voiceXpPerMinute: number;
+  ignoredVoiceChannelIds: string[];
 }
 export interface LevelReward {
   id: string;

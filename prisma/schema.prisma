@@ -36,6 +36,10 @@ model GuildSettings {
   welcomeDmMessage          String?
   welcomeMentionDeleteSeconds Int   @default(0) // 0 = leave the ping, otherwise delete after N seconds
   goodbyeUseCard            Boolean @default(false)
+  // Account-age / alt gate on join (0 = disabled). Action: kick | quarantine | alert
+  minAccountAgeDays Int        @default(0)
+  altGateAction  String         @default("alert")
+  quarantineRoleId String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   autoMod        AutoModConfig?
@@ -53,6 +57,10 @@ model AutoModConfig {
   muteSeconds       Int           @default(300)
   ignoredChannelIds String[]      @default([])
   ignoredRoleIds    String[]      @default([])
+  // Scam / phishing link defense — independent of the all-or-nothing antiLink switch.
+  antiScam          Boolean       @default(false)
+  scamDomains       String[]      @default([])
+  scamAction        String        @default("delete") // delete | warn | mute | kick | ban
   settings          GuildSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
 }
 
@@ -110,6 +118,10 @@ model LevelConfig {
   levelUpChannelId String?
   levelUpMessage  String? // {user} {level}
   stackRewards    Boolean @default(false)
+  // Voice activity XP — credited per active minute in voice by the scheduler sweep.
+  voiceXpEnabled         Boolean  @default(false)
+  voiceXpPerMinute       Int      @default(5)
+  ignoredVoiceChannelIds String[] @default([])
 }
 
 model LevelRoleReward {
@@ -230,6 +242,7 @@ model TicketTranscript {
   ticketId  String
   number    Int
   html      String
+  aiSummary String?  // optional Claude-generated Arabic summary, filled async on close
   closedBy  String?
   createdAt DateTime @default(now())
 
@@ -463,4 +476,216 @@ model CreatorAnnounceConfig {
   tiktokUsername    String? // without leading @
   tiktokLastVideoId String?
   lastPolledTt      DateTime?
+}
+
+// ---- Invite tracking (who invited whom + per-inviter leaderboard) ----
+model InviteConfig {
+  guildId         String  @id
+  enabled         Boolean @default(false)
+  fakeDays        Int     @default(7) // joiners whose account is younger than N days count as "fake"
+  rewardRoleId    String? // role granted once an inviter passes rewardThreshold regular invites
+  rewardThreshold Int     @default(0) // 0 = no reward role
+  logChannelId    String? // where join attributions are posted (falls back to logChannelId)
+}
+
+model InviteRecord {
+  id        String   @id @default(cuid())
+  guildId   String
+  inviterId String // who owned the used invite ("" = unknown / vanity)
+  joinerId  String
+  code      String?
+  fake      Boolean  @default(false)
+  left      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([guildId, inviterId])
+  @@index([guildId, joinerId])
+}
+
+model InviteStat {
+  guildId String
+  userId  String // the inviter
+  regular Int    @default(0)
+  fake    Int    @default(0)
+  left    Int    @default(0)
+
+  @@id([guildId, userId])
+  @@index([guildId, regular])
+}
+
+// ---- Anti-raid join-gate + auto-lockdown ----
+model RaidConfig {
+  guildId           String  @id
+  enabled           Boolean @default(false)
+  joinWindowSec     Int     @default(10) // sliding window
+  joinThreshold     Int     @default(8) // joins within the window that trip the gate
+  action            String  @default("lockdown") // lockdown | kick | ban
+  raiseVerification Boolean @default(true) // bump guild verification to highest while locked
+  alertChannelId    String? // falls back to logChannelId
+  autoLiftMinutes   Int     @default(10) // auto-release lockdown after N minutes (0 = manual only)
+}
+
+// ---- Reusable embed builder / library ----
+model SavedEmbed {
+  id              String   @id @default(cuid())
+  guildId         String
+  name            String
+  payload         Json     @default("{}") // { title, description, color, fields[], image, thumbnail, footer, author, buttons[] }
+  postedChannelId String?
+  postedMessageId String? // set after first post; enables in-place edit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([guildId, name])
+  @@index([guildId])
+}
+
+// ---- Server economy / currency ----
+model EconomyConfig {
+  guildId         String  @id
+  enabled         Boolean @default(false)
+  currencyName    String  @default("عملة")
+  currencyEmoji   String  @default("🪙")
+  perMessage      Int     @default(5)
+  cooldownSeconds Int     @default(60)
+  dailyAmount     Int     @default(200)
+  streakBonus     Int     @default(50) // extra per consecutive daily, capped by maxStreakBonus
+  maxStreakBonus  Int     @default(500)
+}
+
+model Wallet {
+  guildId   String
+  userId    String
+  balance   Int       @default(0)
+  lastDaily DateTime?
+  streak    Int       @default(0)
+
+  @@id([guildId, userId])
+  @@index([guildId, balance])
+}
+
+model EconomyTransaction {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  amount    Int // signed
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([guildId, userId, createdAt])
+}
+
+// ---- Application / form builder ----
+model ApplicationForm {
+  id              String                @id @default(cuid())
+  guildId         String
+  name            String
+  description     String?
+  reviewChannelId String? // where submissions land with accept/deny buttons
+  acceptRoleId    String? // granted on accept
+  enabled         Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  questions       ApplicationQuestion[]
+
+  @@index([guildId])
+}
+
+model ApplicationQuestion {
+  id       String          @id @default(cuid())
+  formId   String
+  label    String
+  style    String          @default("short") // short | paragraph
+  required Boolean         @default(true)
+  position Int             @default(0)
+  form     ApplicationForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+}
+
+model ApplicationSubmission {
+  id         String   @id @default(cuid())
+  guildId    String
+  formId     String
+  userId     String
+  answers    Json     @default("[]") // [{ label, answer }]
+  status     String   @default("pending") // pending | accepted | denied
+  reviewedBy String?
+  messageId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([guildId, status])
+  @@index([formId])
+}
+
+// ---- Weekly digest auto-post ----
+model DigestConfig {
+  guildId     String  @id
+  enabled     Boolean @default(false)
+  channelId   String?
+  weekday     Int     @default(1) // 0=Sun .. 6=Sat (UTC)
+  lastSentKey String? // ISO week key already posted (dedupe across restarts)
+}
+
+// ---- Role shop (spend economy currency on roles) ----
+model ShopItem {
+  id            String   @id @default(cuid())
+  guildId       String
+  roleId        String
+  label         String?
+  price         Int
+  stock         Int      @default(-1) // -1 = unlimited
+  durationHours Int? // null = permanent; otherwise a temp role that expires
+  requiredLevel Int? // gate purchase behind a level
+  position      Int      @default(0)
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([guildId])
+}
+
+model ShopPurchase {
+  id        String    @id @default(cuid())
+  guildId   String
+  userId    String
+  itemId    String
+  roleId    String
+  expiresAt DateTime? // for temp roles; null = permanent
+  createdAt DateTime  @default(now())
+
+  @@index([guildId, userId])
+  @@index([expiresAt])
+}
+
+// ---- Booster tracking + auto perks ----
+model BoosterConfig {
+  guildId           String   @id
+  enabled           Boolean  @default(false)
+  announceChannelId String?
+  message           String? // {user} {server} {count}
+  perkRoleIds       String[] @default([])
+  coinBonus         Int      @default(0) // economy reward granted on boost start
+}
+
+model BoosterRecord {
+  guildId   String
+  userId    String
+  startedAt DateTime @default(now())
+  active    Boolean  @default(true)
+
+  @@id([guildId, userId])
+  @@index([guildId, active])
+}
+
+// ---- Member churn & activity alerts (aggregate-trend, distinct from per-message automod) ----
+model AlertConfig {
+  guildId             String  @id
+  enabled             Boolean @default(false)
+  alertChannelId      String? // falls back to logChannelId
+  leaveSpikeEnabled   Boolean @default(true)
+  leaveSpikeThreshold Int     @default(10) // leaves within a single UTC day
+  activityDropEnabled Boolean @default(true)
+  activityDropPct     Int     @default(50) // alert when today's messages fall N% below the 7-day average
+  joinSpikeEnabled    Boolean @default(true)
+  joinSpikeThreshold  Int     @default(20)
+  lastAlertKey        String? // dedupe: "<rule>:<YYYY-MM-DD>"
 }

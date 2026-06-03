@@ -5,6 +5,8 @@ import { buildPresence } from '../presence';
 import { prisma } from '../../db/prisma';
 import { reconcileTempVoice } from '../tempvoice';
 import { getMusicManager } from '../music/manager';
+import { cacheGuildInvites } from '../invites';
+import { reconcileBoosters } from '../boosters';
 
 module.exports = {
   name: 'ready',
@@ -26,6 +28,13 @@ module.exports = {
         .fetch()
         .then((m) => logger.success(`Member cache warmed (${m.size})`))
         .catch(() => logger.warning('Could not warm member cache (check GuildMembers intent)'));
+
+      if (guild) {
+        // Snapshot invite uses so joins can be attributed by diffing.
+        await cacheGuildInvites(guild).catch(() => logger.warning('Could not warm invite cache (check Manage Server permission)'));
+        // Sync booster records with the live boost state.
+        await reconcileBoosters(guild, prisma).catch(() => undefined);
+      }
     }
 
     // Prune orphaned temp voice rooms (created last session, never cleaned because the bot

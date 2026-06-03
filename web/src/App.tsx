@@ -35,6 +35,16 @@ import { Notes } from './pages/Notes';
 import { Rules } from './pages/Rules';
 import { BotControl } from './pages/BotControl';
 import { CreatorAnnounce } from './pages/CreatorAnnounce';
+import { Invites } from './pages/Invites';
+import { Raid } from './pages/Raid';
+import { Economy } from './pages/Economy';
+import { Shop } from './pages/Shop';
+import { EmbedBuilder } from './pages/EmbedBuilder';
+import { Applications } from './pages/Applications';
+import { StaffReport } from './pages/StaffReport';
+import { Digest } from './pages/Digest';
+import { Boosters } from './pages/Boosters';
+import { Alerts } from './pages/Alerts';
 
 function Guarded({ children }: { children: ReactNode }) {
   const { data, isLoading, isError } = useMe();
@@ -84,6 +94,16 @@ export default function App() {
           <Route path="notes" element={<Notes />} />
           <Route path="rules" element={<Rules />} />
           <Route path="bot" element={<BotControl />} />
+          <Route path="invites" element={<Invites />} />
+          <Route path="raid" element={<Raid />} />
+          <Route path="economy" element={<Economy />} />
+          <Route path="shop" element={<Shop />} />
+          <Route path="embeds" element={<EmbedBuilder />} />
+          <Route path="applications" element={<Applications />} />
+          <Route path="staffreport" element={<StaffReport />} />
+          <Route path="digest" element={<Digest />} />
+          <Route path="boosters" element={<Boosters />} />
+          <Route path="alerts" element={<Alerts />} />
           <Route path="welcome" element={<Welcome />} />
           <Route path="commands" element={<Commands />} />
           <Route path="settings" element={<Settings />} />

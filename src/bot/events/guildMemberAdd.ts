@@ -15,8 +15,34 @@ import { welcomeText, parseWelcomeButtons, formatAccountAge, renderTemplate, typ
 import { renderWelcomeCard } from '../welcomeCard';
 import { logEvent } from '../logging';
 import { logger } from '../../shared/logger';
+import { handleRaidJoin } from '../raid';
+import { attributeJoin } from '../invites';
 
 const ORANGE = 0xf57c00;
+
+type Settings = NonNullable<Awaited<ReturnType<typeof getSettings>>>;
+
+/** Account-age / alt gate. Returns 'kick' when the member was removed (so no welcome runs). */
+async function applyAltGate(member: GuildMember, settings: Settings): Promise<'kick' | 'quarantine' | 'alert' | null> {
+  const ageDays = (Date.now() - member.user.createdTimestamp) / 86_400_000;
+  if (settings.minAccountAgeDays <= 0 || ageDays >= settings.minAccountAgeDays) return null;
+  const guild = member.guild;
+  await logEvent({ client: member.client, prisma }, guild.id, 'altgate', {
+    userId: member.id,
+    username: member.user.username,
+    ageDays: Math.floor(ageDays),
+    action: settings.altGateAction,
+  });
+  if (settings.altGateAction === 'kick') {
+    await member.kick('Account younger than the configured minimum').catch(() => undefined);
+    return 'kick';
+  }
+  if (settings.altGateAction === 'quarantine' && settings.quarantineRoleId) {
+    await member.roles.add(settings.quarantineRoleId, 'Alt gate quarantine').catch(() => undefined);
+    return 'quarantine';
+  }
+  return 'alert';
+}
 
 /** Build the welcome row from the configured link buttons. */
 function buildButtonRow(buttons: WelcomeButton[]): ActionRowBuilder<MessageActionRowComponentBuilder> | null {
@@ -42,7 +68,17 @@ module.exports = {
   async execute(member: GuildMember) {
     const guild = member.guild;
     bump(guild.id, 'joins');
+
+    // Anti-raid join-gate runs first; if it actioned (kicked/banned) the member, stop here.
+    if (await handleRaidJoin(guild, prisma, member).catch(() => false)) return;
+
     const settings = await getSettings(guild.id).catch(() => null);
+
+    // Account-age / alt gate. A kick ends processing (no welcome for a removed member).
+    if (settings && (await applyAltGate(member, settings)) === 'kick') return;
+
+    // Attribute the join to whoever's invite was used (best-effort, no-op if disabled).
+    await attributeJoin(guild, prisma, member).catch(() => undefined);
 
     if (settings?.autoRoleId) {
       await member.roles.add(settings.autoRoleId).catch(() => undefined);

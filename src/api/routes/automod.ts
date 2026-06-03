@@ -35,8 +35,18 @@ export function createAutoModRouter(deps: AutoModDeps): Router {
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: EditableAutoMod = {};
 
-    for (const k of ['enabled', 'antiSpam', 'antiInvite', 'antiLink'] as const) {
+    for (const k of ['enabled', 'antiSpam', 'antiInvite', 'antiLink', 'antiScam'] as const) {
       if (b[k] !== undefined) data[k] = Boolean(b[k]);
+    }
+    if (b.scamAction !== undefined) {
+      if (!AUTOMOD_ACTIONS.includes(b.scamAction as AutoModAction)) {
+        return res.status(400).json({ error: `scamAction must be one of ${AUTOMOD_ACTIONS.join(', ')}` });
+      }
+      data.scamAction = b.scamAction as string;
+    }
+    if (b.scamDomains !== undefined) {
+      if (!Array.isArray(b.scamDomains)) return res.status(400).json({ error: 'scamDomains must be an array' });
+      data.scamDomains = normalizeWords(b.scamDomains);
     }
     if (b.maxMentions !== undefined) {
       const n = Number(b.maxMentions);

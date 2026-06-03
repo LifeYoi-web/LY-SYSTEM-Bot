@@ -3,8 +3,10 @@ import { prisma } from '../../db/prisma';
 import { getAutoMod } from '../../db/automod';
 import { getAutoResponses, matchAutoResponse } from '../../db/autoresponses';
 import { getLevelConfig } from '../../db/leveling';
-import { checkContent, checkSpam, VIOLATION_LABELS } from '../automod/checker';
+import { getEconomyConfig } from '../../db/community';
+import { checkContent, checkScamLink, checkSpam, VIOLATION_LABELS } from '../automod/checker';
 import { awardMessageXp } from '../leveling';
+import { awardMessageCoins } from '../economy';
 import { bump } from '../stats';
 import { logEvent } from '../logging';
 import { handleAfk, handleCounting, handleHighlights, maybeSticky } from '../community-handlers';
@@ -28,6 +30,13 @@ module.exports = {
       if (!bypass) {
         const mentions = message.mentions.users.size;
         let violation = checkContent(message.content ?? '', mentions, cfg);
+        let action = cfg.actionOnViolation;
+        // Scam/phishing links have their own action so a guild can allow normal links
+        // while still nuking known token-stealing domains.
+        if (!violation && cfg.antiScam && checkScamLink(message.content ?? '', cfg.scamDomains)) {
+          violation = 'scam';
+          action = cfg.scamAction;
+        }
         if (!violation && cfg.antiSpam && checkSpam(message.author.id)) violation = 'spam';
         if (violation) {
           await message.delete().catch(() => undefined);
@@ -39,10 +48,10 @@ module.exports = {
             reason: `AutoMod: ${VIOLATION_LABELS[violation]}`,
           };
           try {
-            if (cfg.actionOnViolation === 'warn') await warnUser(deps, params);
-            else if (cfg.actionOnViolation === 'mute') await muteUser(deps, { ...params, seconds: cfg.muteSeconds });
-            else if (cfg.actionOnViolation === 'kick') await kickUser(deps, params);
-            else if (cfg.actionOnViolation === 'ban') await banUser(deps, params);
+            if (action === 'warn') await warnUser(deps, params);
+            else if (action === 'mute') await muteUser(deps, { ...params, seconds: cfg.muteSeconds });
+            else if (action === 'kick') await kickUser(deps, params);
+            else if (action === 'ban') await banUser(deps, params);
           } catch {
             /* message already removed; action failures are non-fatal */
           }
@@ -53,7 +62,7 @@ module.exports = {
             .addFields(
               { name: 'العضو', value: `<@${message.author.id}>`, inline: true },
               { name: 'المخالفة', value: VIOLATION_LABELS[violation], inline: true },
-              { name: 'الإجراء', value: cfg.actionOnViolation, inline: true },
+              { name: 'الإجراء', value: action, inline: true },
             )
             .setTimestamp();
           await logEvent({ client: message.client, prisma }, guildId, `automod_${violation}`, {
@@ -98,6 +107,14 @@ module.exports = {
           await target?.send?.({ content: text, allowedMentions: { users: [message.author.id] } }).catch(() => undefined);
         }
       }
+    } catch {
+      /* non-fatal */
+    }
+
+    // 4) Economy currency (earn-per-message, own cooldown)
+    try {
+      const eco = await getEconomyConfig(guildId);
+      if (eco.enabled) await awardMessageCoins(prisma, guildId, message.author.id, eco);
     } catch {
       /* non-fatal */
     }

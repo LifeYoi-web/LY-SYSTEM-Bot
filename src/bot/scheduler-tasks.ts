@@ -1,7 +1,19 @@
-import { ChannelType, type Client, type TextChannel } from 'discord.js';
+import { ChannelType, EmbedBuilder, type Client, type TextChannel } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import { endGiveaway } from './giveaways';
-import { getBirthdayConfig } from '../db/community';
+import {
+  getBirthdayConfig,
+  getDigestConfig,
+  updateDigestConfig,
+  getAlertConfig,
+  updateAlertConfig,
+} from '../db/community';
+import { getSettings } from '../db/settingsCache';
+import { detectAlerts } from '../shared/alerts';
+import { expireDueRoles } from './shop';
+import { sweepRaidLocks } from './raid';
+
+const ORANGE = 0xf57c00;
 
 export interface TaskDeps {
   client: Client;
@@ -102,4 +114,99 @@ export async function refreshStatCounters(deps: TaskDeps): Promise<number> {
     }
   }
   return updated;
+}
+
+/** Remove expired temp-purchase roles (role shop rentals). */
+export async function expireShopRoles(deps: TaskDeps): Promise<number> {
+  const guild = deps.client.guilds.cache.get(deps.guildId);
+  if (!guild) return 0;
+  return expireDueRoles(guild, deps.prisma);
+}
+
+/** Auto-lift an expired anti-raid lockdown. */
+export async function sweepRaids(deps: TaskDeps): Promise<void> {
+  const guild = deps.client.guilds.cache.get(deps.guildId);
+  if (guild) await sweepRaidLocks(guild);
+}
+
+/** Post the weekly digest embed once on the configured weekday. */
+export async function postWeeklyDigest(deps: TaskDeps, now: Date = new Date(), force = false): Promise<boolean> {
+  const cfg = await getDigestConfig(deps.guildId);
+  if (!cfg.channelId) return false;
+  const key = now.toISOString().slice(0, 10);
+  if (!force) {
+    if (!cfg.enabled) return false;
+    if (now.getUTCDay() !== cfg.weekday) return false;
+    if (cfg.lastSentKey === key) return false; // already posted today
+  }
+
+  const since = new Date(now);
+  since.setUTCDate(since.getUTCDate() - 7);
+  const sinceKey = since.toISOString().slice(0, 10);
+  const stats = await deps.prisma.dailyStat.findMany({ where: { guildId: deps.guildId, date: { gte: sinceKey } } });
+  const sum = (k: 'messages' | 'joins' | 'leaves') => stats.reduce((s, d) => s + d[k], 0);
+  const net = sum('joins') - sum('leaves');
+  const [modActions, ticketsClosed, climbers] = await Promise.all([
+    deps.prisma.moderationCase.count({ where: { guildId: deps.guildId, createdAt: { gte: since } } }),
+    deps.prisma.ticket.count({ where: { guildId: deps.guildId, status: 'closed', closedAt: { gte: since } } }),
+    deps.prisma.memberLevel.findMany({ where: { guildId: deps.guildId }, orderBy: { xp: 'desc' }, take: 5 }),
+  ]);
+
+  const channel = deps.client.channels.cache.get(cfg.channelId) as TextChannel | undefined;
+  if (!channel?.isTextBased?.()) return false;
+  const embed = new EmbedBuilder()
+    .setColor(ORANGE)
+    .setTitle('📊 ملخّص الأسبوع')
+    .setDescription('أبرز ما جرى في السيرفر خلال آخر ٧ أيام:')
+    .addFields(
+      { name: '💬 الرسائل', value: sum('messages').toLocaleString('en-US'), inline: true },
+      { name: '📈 صافي الأعضاء', value: `${net >= 0 ? '+' : ''}${net}`, inline: true },
+      { name: '🛡️ إجراءات الإشراف', value: String(modActions), inline: true },
+      { name: '🎫 تذاكر مغلقة', value: String(ticketsClosed), inline: true },
+      {
+        name: '🏆 أبرز المتسلّقين',
+        value: climbers.map((r, i) => `${i + 1}. <@${r.userId}> — المستوى ${r.level}`).join('\n') || '—',
+      },
+    )
+    .setTimestamp();
+  await channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => undefined);
+  if (!force) await updateDigestConfig(deps.guildId, { lastSentKey: key });
+  return true;
+}
+
+/** Evaluate churn/activity alert rules and post (at most one batch per UTC day). */
+export async function runChurnAlerts(deps: TaskDeps, now: Date = new Date()): Promise<number> {
+  const cfg = await getAlertConfig(deps.guildId);
+  if (!cfg.enabled) return 0;
+  const todayKey = now.toISOString().slice(0, 10);
+  if (cfg.lastAlertKey === todayKey) return 0; // already alerted today
+
+  const since = new Date(now);
+  since.setUTCDate(since.getUTCDate() - 8);
+  const sinceKey = since.toISOString().slice(0, 10);
+  const stats = await deps.prisma.dailyStat.findMany({
+    where: { guildId: deps.guildId, date: { gte: sinceKey } },
+    orderBy: { date: 'asc' },
+  });
+  const hits = detectAlerts(
+    stats.map((s) => ({ date: s.date, messages: s.messages, joins: s.joins, leaves: s.leaves })),
+    todayKey,
+    cfg,
+  );
+  if (!hits.length) return 0;
+
+  let channelId = cfg.alertChannelId;
+  if (!channelId) channelId = (await getSettings(deps.guildId).catch(() => null))?.logChannelId ?? null;
+  if (!channelId) return 0;
+  const channel = deps.client.channels.cache.get(channelId) as TextChannel | undefined;
+  if (!channel?.isTextBased?.()) return 0;
+
+  const embed = new EmbedBuilder()
+    .setColor(0xe5484d)
+    .setTitle('🚨 تنبيه نشاط السيرفر')
+    .setDescription(hits.map((h) => h.message).join('\n'))
+    .setTimestamp();
+  await channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => undefined);
+  await updateAlertConfig(deps.guildId, { lastAlertKey: todayKey });
+  return hits.length;
 }

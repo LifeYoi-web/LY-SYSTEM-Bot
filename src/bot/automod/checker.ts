@@ -1,4 +1,22 @@
-export type Violation = 'banned_word' | 'invite' | 'link' | 'mentions' | 'spam' | null;
+export type Violation = 'banned_word' | 'invite' | 'link' | 'mentions' | 'spam' | 'scam' | null;
+
+// Common token-stealing / phishing domains. Used as defaults when a guild has not
+// supplied its own scamDomains list. Matching is substring + case-insensitive.
+export const DEFAULT_SCAM_DOMAINS = [
+  'discordnitro', 'discord-nitro', 'discrod', 'dlscord', 'discordgift', 'discord-gift',
+  'steamcommunity.ru', 'steamcommunnity', 'free-nitro', 'nitro-free', 'discordapp.gift',
+  'discord.gift-', 'gift-discord', 'discord-airdrop', 'crypto-airdrop',
+];
+
+/**
+ * Scam / phishing link scan, independent of the all-or-nothing antiLink switch so a
+ * guild can allow normal links while still nuking known token-stealing domains.
+ */
+export function checkScamLink(content: string, domains: string[]): boolean {
+  const list = domains.length ? domains : DEFAULT_SCAM_DOMAINS;
+  const lower = content.toLowerCase();
+  return list.some((d) => d && lower.includes(d.toLowerCase()));
+}
 
 export interface ContentRules {
   antiInvite: boolean;
@@ -52,4 +70,5 @@ export const VIOLATION_LABELS: Record<Exclude<Violation, null>, string> = {
   link: 'رابط خارجي',
   mentions: 'إشارات مفرطة',
   spam: 'سبام / إغراق',
+  scam: 'رابط نصب / تصيّد',
 };

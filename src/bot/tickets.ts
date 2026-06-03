@@ -17,6 +17,7 @@ import type { PrismaClient, Ticket, TicketConfig, TicketType } from '@prisma/cli
 import { getTicketConfig, getTicketTypes, invalidateTicketConfig } from '../db/community';
 import { getSettings } from '../db/settingsCache';
 import { logEvent } from './logging';
+import { summarizeTranscript } from '../shared/ai';
 
 const ORANGE = 0xf57c00;
 
@@ -405,6 +406,17 @@ export async function closeTicket(
   const saved = await prisma.ticketTranscript
     .create({ data: { guildId: guild.id, ticketId: ticket.id, number: ticket.number, html, closedBy } })
     .catch(() => null);
+
+  // AI summary — fire-and-forget, gated on ANTHROPIC_API_KEY. Never blocks channel deletion.
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (apiKey && saved && messages.length) {
+    const plain = messages.map((m) => `${m.authorTag}: ${m.content}`).join('\n');
+    void summarizeTranscript(plain, apiKey).then((summary) => {
+      if (summary) {
+        return prisma.ticketTranscript.update({ where: { id: saved.id }, data: { aiSummary: summary } }).catch(() => undefined);
+      }
+    });
+  }
 
   await prisma.ticket.update({
     where: { id: ticket.id },

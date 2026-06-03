@@ -3,7 +3,7 @@ import { useLeveling, useUpdateLeveling, useLeaderboard, useAddReward, useDelete
 import type { LevelConfig } from '../lib/types';
 import { Icon } from '../lib/icons';
 import { Switch, SkeletonRows, EmptyState, toast, fmt, clampInt } from '../components/ui';
-import { Select, useChannelOptions, useRoleOptions } from '../components/pickers';
+import { Select, MultiSelect, useChannelOptions, useRoleOptions } from '../components/pickers';
 
 export function Leveling() {
   const { data, isLoading } = useLeveling();
@@ -12,6 +12,7 @@ export function Leveling() {
   const addReward = useAddReward();
   const delReward = useDeleteReward();
   const channels = useChannelOptions(['text', 'announcement']);
+  const voiceChannels = useChannelOptions(['voice']);
   const roles = useRoleOptions();
   const [d, setD] = useState<LevelConfig | null>(null);
   const [rwLevel, setRwLevel] = useState(5);
@@ -30,6 +31,7 @@ export function Leveling() {
       {
         enabled: d.enabled, xpPerMessage: d.xpPerMessage, cooldownSeconds: d.cooldownSeconds, multiplier: d.multiplier,
         levelUpEnabled: d.levelUpEnabled, levelUpChannelId: d.levelUpChannelId, levelUpMessage: d.levelUpMessage, stackRewards: d.stackRewards,
+        voiceXpEnabled: d.voiceXpEnabled, voiceXpPerMinute: d.voiceXpPerMinute, ignoredVoiceChannelIds: d.ignoredVoiceChannelIds,
       },
       { onSuccess: () => toast('تم حفظ إعدادات المستويات'), onError: () => toast('فشل الحفظ', 'err') },
     );
@@ -119,6 +121,26 @@ export function Leveling() {
               </div>
             ) : (
               <div className="hint">لا مكافآت بعد.</div>
+            )}
+          </div>
+
+          <div className="card card-pad" style={{ opacity: d.enabled ? 1 : 0.55, pointerEvents: d.enabled ? 'auto' : 'none' }}>
+            <div className="card-hd"><div className="card-title"><Icon name="mic" /> XP الصوتي</div></div>
+            <div className="toggle-row">
+              <div><div className="tr-title">منح XP على التواجد الصوتي</div><div className="tr-sub">يُحتسب لكل دقيقة نشطة في الرومات (غير الكاتم، وبوجود شخصين فأكثر).</div></div>
+              <Switch checked={d.voiceXpEnabled} onChange={(v) => set('voiceXpEnabled', v)} />
+            </div>
+            {d.voiceXpEnabled && (
+              <>
+                <div className="field" style={{ marginTop: 14 }}>
+                  <label>XP لكل دقيقة صوتية</label>
+                  <input className="input tnum" type="number" min={0} max={100} value={d.voiceXpPerMinute} onChange={(e) => set('voiceXpPerMinute', clampInt(e.target.value, 0, 100))} />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>رومات صوتية مستثناة</label>
+                  <MultiSelect value={d.ignoredVoiceChannelIds} onChange={(v) => set('ignoredVoiceChannelIds', v)} options={voiceChannels} />
+                </div>
+              </>
             )}
           </div>
 

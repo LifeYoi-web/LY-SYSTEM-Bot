@@ -36,6 +36,23 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
     if (b.welcomeChannelId !== undefined) data.welcomeChannelId = optStr(b.welcomeChannelId);
     if (b.autoRoleId !== undefined) data.autoRoleId = optStr(b.autoRoleId);
 
+    // Account-age / alt gate on join.
+    if (b.minAccountAgeDays !== undefined) {
+      const n = Number(b.minAccountAgeDays);
+      if (!Number.isInteger(n) || n < 0 || n > 365) {
+        return res.status(400).json({ error: 'minAccountAgeDays must be 0..365' });
+      }
+      data.minAccountAgeDays = n;
+    }
+    if (b.altGateAction !== undefined) {
+      const v = String(b.altGateAction);
+      if (!['kick', 'quarantine', 'alert'].includes(v)) {
+        return res.status(400).json({ error: 'altGateAction must be kick | quarantine | alert' });
+      }
+      data.altGateAction = v;
+    }
+    if (b.quarantineRoleId !== undefined) data.quarantineRoleId = optStr(b.quarantineRoleId);
+
     if (b.staffRoleIds !== undefined) {
       if (!Array.isArray(b.staffRoleIds)) {
         return res.status(400).json({ error: 'staffRoleIds must be an array' });

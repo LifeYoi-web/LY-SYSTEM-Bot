@@ -105,6 +105,13 @@ export function buildControlRow(paused: boolean): ActionRowBuilder<ButtonBuilder
   );
 }
 
+/** Secondary row with the 📜 lyrics button (a control row is already full at 5 buttons). */
+export function buildLyricsRow(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('mu:lyrics').setStyle(ButtonStyle.Secondary).setLabel('📜 الكلمات'),
+  );
+}
+
 /** The "now playing" embed + control row. */
 export function buildNowPlaying(track: TrackLike, state: PlayerState) {
   const { info } = track;
@@ -120,5 +127,5 @@ export function buildNowPlaying(track: TrackLike, state: PlayerState) {
     )
     .setFooter({ text: `الصوت ${state.volume}% · التكرار: ${loopLabel(state.repeatMode)}` });
   if (info.artworkUrl) embed.setThumbnail(info.artworkUrl);
-  return { embeds: [embed], components: [buildControlRow(state.paused)] };
+  return { embeds: [embed], components: [buildControlRow(state.paused), buildLyricsRow()] };
 }

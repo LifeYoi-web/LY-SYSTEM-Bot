@@ -18,6 +18,8 @@ export interface AppConfig {
   lavalinkPort?: number;
   lavalinkPassword?: string;
   lavalinkSecure?: boolean;
+  /** Optional: Anthropic API key enabling AI ticket summaries. Absent => AI features stay off. */
+  anthropicApiKey?: string;
 }
 
 const REQUIRED = [
@@ -47,5 +49,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     lavalinkPort: env.LAVALINK_PORT ? Number(env.LAVALINK_PORT) : undefined,
     lavalinkPassword: env.LAVALINK_PASSWORD || undefined,
     lavalinkSecure: env.LAVALINK_SECURE === 'true',
+    anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,
   };
 }

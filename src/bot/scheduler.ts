@@ -2,7 +2,17 @@ import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import { liftCase, type ActionDeps, type GuildLike } from './moderation/actions';
 import { flushStats } from './stats';
-import { endDueGiveaways, fireDueReminders, announceBirthdays, refreshStatCounters } from './scheduler-tasks';
+import {
+  endDueGiveaways,
+  fireDueReminders,
+  announceBirthdays,
+  refreshStatCounters,
+  expireShopRoles,
+  sweepRaids,
+  postWeeklyDigest,
+  runChurnAlerts,
+} from './scheduler-tasks';
+import { sweepVoiceXp } from './voiceXp';
 import { pollCreatorContent } from './creator/poll';
 import { logger } from '../shared/logger';
 
@@ -57,6 +67,7 @@ export async function postDueScheduled(deps: SchedulerDeps, now: Date = new Date
 export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS.Timeout {
   let lastStatRefresh = 0;
   let lastBirthdayKey = '';
+  let lastTrendCheck = 0;
 
   const tick = async () => {
     // Flush buffered activity counters for every guild the bot can see.
@@ -73,6 +84,18 @@ export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS
     // Time-based community tasks.
     await endDueGiveaways(deps).catch((err) => logger.error(`Giveaway end error: ${err}`));
     await fireDueReminders(deps).catch((err) => logger.error(`Reminder error: ${err}`));
+
+    // Voice-activity XP (pro-rated to the elapsed tick), temp-role expiry, raid lock auto-lift.
+    await sweepVoiceXp(deps.client, deps.prisma, deps.guildId).catch((err) => logger.error(`Voice XP error: ${err}`));
+    await expireShopRoles(deps).catch((err) => logger.error(`Shop expiry error: ${err}`));
+    await sweepRaids(deps).catch(() => undefined);
+
+    // Aggregate-trend tasks (weekly digest + churn alerts), throttled to ~30 min.
+    if (Date.now() - lastTrendCheck > 1_800_000) {
+      lastTrendCheck = Date.now();
+      await postWeeklyDigest(deps).catch((err) => logger.error(`Digest error: ${err}`));
+      await runChurnAlerts(deps).catch((err) => logger.error(`Alerts error: ${err}`));
+    }
 
     // Creator content (YouTube/TikTok new uploads). Self-throttles per source inside the task.
     const newVids = await pollCreatorContent(deps).catch((err) => {

@@ -12,6 +12,7 @@ import { goodbyeText, formatAccountAge } from '../welcome';
 import { renderWelcomeCard } from '../welcomeCard';
 import { logEvent } from '../logging';
 import { logger } from '../../shared/logger';
+import { markLeft } from '../invites';
 
 const GREY = 0x6b6b78;
 
@@ -21,6 +22,7 @@ module.exports = {
   async execute(member: GuildMember | PartialGuildMember) {
     const guild = member.guild;
     bump(guild.id, 'leaves');
+    await markLeft(guild, prisma, member.id).catch(() => undefined);
     const settings = await getSettings(guild.id).catch(() => null);
 
     if (settings?.goodbyeEnabled && settings.welcomeChannelId) {

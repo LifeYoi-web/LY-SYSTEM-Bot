@@ -42,6 +42,9 @@ export function AutoMod() {
         muteSeconds: d.muteSeconds,
         ignoredChannelIds: d.ignoredChannelIds,
         ignoredRoleIds: d.ignoredRoleIds,
+        antiScam: d.antiScam,
+        scamDomains: d.scamDomains,
+        scamAction: d.scamAction,
       },
       {
         onSuccess: () => toast('تم حفظ إعدادات الحماية'),
@@ -118,6 +121,39 @@ export function AutoMod() {
               onChange={(e) => set('muteSeconds', clampInt(e.target.value, 1, 2_419_200))}
             />
           </div>
+        )}
+      </div>
+
+      <div className="card card-pad" style={{ opacity: d.enabled ? 1 : 0.55, pointerEvents: d.enabled ? 'auto' : 'none' }}>
+        <div className="card-hd">
+          <div className="card-title">
+            <Icon name="shield-alert" /> الحماية من النصب والتصيّد
+          </div>
+        </div>
+        <Toggle
+          title="منع روابط النصب والتصيّد"
+          sub="حذف روابط سرقة التوكن وانتحال ديسكورد ونيترو المزيّف — مستقل عن منع الروابط العام."
+          v={d.antiScam}
+          on={(v) => set('antiScam', v)}
+        />
+        {d.antiScam && (
+          <>
+            <div className="field" style={{ marginTop: 14 }}>
+              <label>نطاقات إضافية (اتركها فارغة لاستخدام القائمة المدمجة)</label>
+              <ChipsInput value={d.scamDomains} onChange={(v) => set('scamDomains', v)} placeholder="مثال: discord-nitro.ru" />
+              <div className="hint">أي رابط يحتوي إحدى هذه النطاقات سيُحذف. القائمة المدمجة تغطي أشهر روابط النصب.</div>
+            </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>الإجراء عند رصد رابط نصب</label>
+              <select className="select" value={d.scamAction} onChange={(e) => set('scamAction', e.target.value)}>
+                {ACTIONS.map((a) => (
+                  <option key={a.v} value={a.v}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
       </div>
 

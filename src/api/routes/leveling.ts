@@ -30,13 +30,14 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
   router.put('/', async (req, res) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: EditableLevelConfig = {};
-    for (const k of ['enabled', 'levelUpEnabled', 'stackRewards'] as const) {
+    for (const k of ['enabled', 'levelUpEnabled', 'stackRewards', 'voiceXpEnabled'] as const) {
       if (b[k] !== undefined) data[k] = Boolean(b[k]);
     }
     const ints: [keyof EditableLevelConfig, number, number][] = [
       ['xpPerMessage', 1, 100],
       ['cooldownSeconds', 0, 3600],
       ['multiplier', 1, 5],
+      ['voiceXpPerMinute', 0, 100],
     ];
     for (const [k, min, max] of ints) {
       if (b[k] !== undefined) {
@@ -46,6 +47,10 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
         }
         (data as Record<string, number>)[k] = n;
       }
+    }
+    if (b.ignoredVoiceChannelIds !== undefined) {
+      if (!Array.isArray(b.ignoredVoiceChannelIds)) return res.status(400).json({ error: 'ignoredVoiceChannelIds must be an array' });
+      data.ignoredVoiceChannelIds = (b.ignoredVoiceChannelIds as unknown[]).map(String);
     }
     if (b.levelUpChannelId !== undefined) data.levelUpChannelId = optStr(b.levelUpChannelId);
     if (b.levelUpMessage !== undefined) {

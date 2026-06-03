@@ -37,6 +37,16 @@ import { createNotesRouter } from './routes/notes';
 import { createRulesRouter } from './routes/rules';
 import { createBotRouter } from './routes/bot';
 import { createCreatorAnnounceRouter } from './routes/creatorannounce';
+import { createInvitesRouter } from './routes/invites';
+import { createRaidRouter } from './routes/raid';
+import { createEconomyRouter } from './routes/economy';
+import { createShopRouter } from './routes/shop';
+import { createEmbedsRouter } from './routes/embeds';
+import { createApplicationsRouter } from './routes/applications';
+import { createStaffReportRouter } from './routes/staffreport';
+import { createDigestRouter } from './routes/digest';
+import { createBoostersRouter } from './routes/boosters';
+import { createAlertsRouter } from './routes/alerts';
 import { requireStaff } from './middleware/requireStaff';
 import { rateLimit } from './middleware/rateLimit';
 
@@ -126,6 +136,16 @@ export function createApp(deps: ApiDeps): Express {
     rateLimit({ windowMs: 60_000, max: 20 }),
     createCreatorAnnounceRouter(deps),
   );
+  app.use('/api/invites', requireStaff(), createInvitesRouter(deps));
+  app.use('/api/raid', requireStaff(), createRaidRouter(deps));
+  app.use('/api/economy', requireStaff(), createEconomyRouter(deps));
+  app.use('/api/shop', requireStaff(), createShopRouter(deps));
+  app.use('/api/embeds', requireStaff(), rateLimit({ windowMs: 60_000, max: 30 }), createEmbedsRouter(deps));
+  app.use('/api/applications', requireStaff(), createApplicationsRouter(deps));
+  app.use('/api/staffreport', requireStaff(), createStaffReportRouter(deps));
+  app.use('/api/digest', requireStaff(), createDigestRouter(deps));
+  app.use('/api/boosters', requireStaff(), createBoostersRouter(deps));
+  app.use('/api/alerts', requireStaff(), createAlertsRouter(deps));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));

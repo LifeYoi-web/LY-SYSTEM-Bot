@@ -14,6 +14,9 @@ export type EditableLevelConfig = Partial<
     | 'levelUpChannelId'
     | 'levelUpMessage'
     | 'stackRewards'
+    | 'voiceXpEnabled'
+    | 'voiceXpPerMinute'
+    | 'ignoredVoiceChannelIds'
   >
 >;
 

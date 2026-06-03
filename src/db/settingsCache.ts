@@ -31,6 +31,9 @@ export type EditableSettings = Partial<
     | 'welcomeDmMessage'
     | 'welcomeMentionDeleteSeconds'
     | 'goodbyeUseCard'
+    | 'minAccountAgeDays'
+    | 'altGateAction'
+    | 'quarantineRoleId'
   >
 >;
 

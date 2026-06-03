@@ -9,6 +9,12 @@ import type {
   ReportConfig,
   TempVoiceConfig,
   CreatorAnnounceConfig,
+  InviteConfig,
+  RaidConfig,
+  EconomyConfig,
+  DigestConfig,
+  BoosterConfig,
+  AlertConfig,
   Highlight,
 } from '@prisma/client';
 
@@ -105,6 +111,54 @@ const creatorAnnounceCfg = singleRowCache<CreatorAnnounceConfig>(
 export const getCreatorAnnounceConfig = creatorAnnounceCfg.get;
 export const updateCreatorAnnounceConfig = creatorAnnounceCfg.update;
 export const invalidateCreatorAnnounceConfig = creatorAnnounceCfg.invalidate;
+
+const inviteCfg = singleRowCache<InviteConfig>(
+  (g) => prisma.inviteConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.inviteConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getInviteConfig = inviteCfg.get;
+export const updateInviteConfig = inviteCfg.update;
+export const invalidateInviteConfig = inviteCfg.invalidate;
+
+const raidCfg = singleRowCache<RaidConfig>(
+  (g) => prisma.raidConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.raidConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getRaidConfig = raidCfg.get;
+export const updateRaidConfig = raidCfg.update;
+export const invalidateRaidConfig = raidCfg.invalidate;
+
+const economyCfg = singleRowCache<EconomyConfig>(
+  (g) => prisma.economyConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.economyConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getEconomyConfig = economyCfg.get;
+export const updateEconomyConfig = economyCfg.update;
+export const invalidateEconomyConfig = economyCfg.invalidate;
+
+const digestCfg = singleRowCache<DigestConfig>(
+  (g) => prisma.digestConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.digestConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getDigestConfig = digestCfg.get;
+export const updateDigestConfig = digestCfg.update;
+export const invalidateDigestConfig = digestCfg.invalidate;
+
+const boosterCfg = singleRowCache<BoosterConfig>(
+  (g) => prisma.boosterConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.boosterConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getBoosterConfig = boosterCfg.get;
+export const updateBoosterConfig = boosterCfg.update;
+export const invalidateBoosterConfig = boosterCfg.invalidate;
+
+const alertCfg = singleRowCache<AlertConfig>(
+  (g) => prisma.alertConfig.upsert({ where: { guildId: g }, update: {}, create: { guildId: g } }),
+  (g, d) => prisma.alertConfig.upsert({ where: { guildId: g }, update: d, create: { guildId: g, ...d } }),
+);
+export const getAlertConfig = alertCfg.get;
+export const updateAlertConfig = alertCfg.update;
+export const invalidateAlertConfig = alertCfg.invalidate;
 
 // ---- Highlights (cached list per guild) ----
 const hlCache = new Map<string, Highlight[]>();

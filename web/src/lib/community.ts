@@ -313,3 +313,273 @@ export function useUpdateCreatorAnnounce() {
 export function useTestCreatorAnnounce() {
   return useMutation({ mutationFn: () => apiPost('/creatorannounce/test') });
 }
+
+/* ===================== Wave-2 features (15 new) ===================== */
+
+// Invite tracking
+export interface InviteConfig {
+  guildId: string;
+  enabled: boolean;
+  fakeDays: number;
+  rewardRoleId: string | null;
+  rewardThreshold: number;
+  logChannelId: string | null;
+}
+export interface InviteStat {
+  guildId: string;
+  userId: string;
+  regular: number;
+  fake: number;
+  left: number;
+}
+export const useInvites = () =>
+  useQuery<{ config: InviteConfig; leaderboard: InviteStat[] }>({ queryKey: ['invites'], queryFn: () => api('/invites') });
+export function useUpdateInviteConfig() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: Partial<InviteConfig>) => apiPut('/invites/config', b), onSuccess: invalidate(qc, 'invites') });
+}
+
+// Anti-raid
+export interface RaidConfig {
+  guildId: string;
+  enabled: boolean;
+  joinWindowSec: number;
+  joinThreshold: number;
+  action: string; // lockdown | kick | ban
+  raiseVerification: boolean;
+  alertChannelId: string | null;
+  autoLiftMinutes: number;
+}
+export const useRaid = () => useQuery<RaidConfig>({ queryKey: ['raid'], queryFn: () => api('/raid') });
+export function useUpdateRaid() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: Partial<RaidConfig>) => apiPut('/raid', b), onSuccess: invalidate(qc, 'raid') });
+}
+
+// Economy
+export interface EconomyConfig {
+  guildId: string;
+  enabled: boolean;
+  currencyName: string;
+  currencyEmoji: string;
+  perMessage: number;
+  cooldownSeconds: number;
+  dailyAmount: number;
+  streakBonus: number;
+  maxStreakBonus: number;
+}
+export interface Wallet {
+  guildId: string;
+  userId: string;
+  balance: number;
+  streak: number;
+  lastDaily: string | null;
+}
+export const useEconomy = () =>
+  useQuery<{ config: EconomyConfig; leaderboard: Wallet[] }>({ queryKey: ['economy'], queryFn: () => api('/economy') });
+export function useUpdateEconomy() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: Partial<EconomyConfig>) => apiPut('/economy/config', b), onSuccess: invalidate(qc, 'economy') });
+}
+export function useGrantCoins() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: { userId: string; amount: number }) => apiPost('/economy/grant', b), onSuccess: invalidate(qc, 'economy') });
+}
+
+// Role shop
+export interface ShopItem {
+  id: string;
+  guildId: string;
+  roleId: string;
+  label: string | null;
+  price: number;
+  stock: number; // -1 = unlimited
+  durationHours: number | null;
+  requiredLevel: number | null;
+  position: number;
+  enabled: boolean;
+}
+export const useShop = () => useQuery<{ items: ShopItem[] }>({ queryKey: ['shop'], queryFn: () => api('/shop') });
+export function useSaveShopItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...b }: Partial<ShopItem> & { id?: string }) => (id ? apiPut(`/shop/items/${id}`, b) : apiPost('/shop/items', b)),
+    onSuccess: invalidate(qc, 'shop'),
+  });
+}
+export function useDeleteShopItem() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => apiDelete(`/shop/items/${id}`), onSuccess: invalidate(qc, 'shop') });
+}
+
+// Embed builder
+export interface EmbedField {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+export interface EmbedLinkButton {
+  label: string;
+  url: string;
+  emoji?: string;
+}
+export interface EmbedPayload {
+  title?: string;
+  description?: string;
+  color?: string;
+  fields?: EmbedField[];
+  image?: string;
+  thumbnail?: string;
+  footer?: string;
+  author?: string;
+  buttons?: EmbedLinkButton[];
+}
+export interface SavedEmbed {
+  id: string;
+  guildId: string;
+  name: string;
+  payload: EmbedPayload;
+  postedChannelId: string | null;
+  postedMessageId: string | null;
+  updatedAt: string;
+}
+export const useEmbeds = () => useQuery<{ embeds: SavedEmbed[] }>({ queryKey: ['embeds'], queryFn: () => api('/embeds') });
+export function useSaveEmbed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...b }: { id?: string; name?: string; payload: EmbedPayload }) =>
+      id ? apiPut(`/embeds/${id}`, b) : apiPost('/embeds', b),
+    onSuccess: invalidate(qc, 'embeds'),
+  });
+}
+export function useDeleteEmbed() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => apiDelete(`/embeds/${id}`), onSuccess: invalidate(qc, 'embeds') });
+}
+export function usePostEmbed() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: { id: string; channelId?: string }) => apiPost(`/embeds/${b.id}/post`, { channelId: b.channelId }), onSuccess: invalidate(qc, 'embeds') });
+}
+
+// Applications
+export interface AppQuestion {
+  id: string;
+  formId: string;
+  label: string;
+  style: string; // short | paragraph
+  required: boolean;
+  position: number;
+}
+export interface AppForm {
+  id: string;
+  guildId: string;
+  name: string;
+  description: string | null;
+  reviewChannelId: string | null;
+  acceptRoleId: string | null;
+  enabled: boolean;
+  questions: AppQuestion[];
+}
+export interface AppSubmission {
+  id: string;
+  formId: string;
+  userId: string;
+  answers: { label: string; answer: string }[];
+  status: string;
+  reviewedBy: string | null;
+  createdAt: string;
+}
+export interface AppFormInput {
+  id?: string;
+  name: string;
+  description?: string | null;
+  reviewChannelId?: string | null;
+  acceptRoleId?: string | null;
+  enabled?: boolean;
+  questions: { label: string; style: string; required: boolean }[];
+}
+export const useApplications = () =>
+  useQuery<{ forms: AppForm[]; submissions: AppSubmission[] }>({ queryKey: ['applications'], queryFn: () => api('/applications') });
+export function useSaveForm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...b }: AppFormInput) => (id ? apiPut(`/applications/forms/${id}`, b) : apiPost('/applications/forms', b)),
+    onSuccess: invalidate(qc, 'applications'),
+  });
+}
+export function useDeleteForm() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => apiDelete(`/applications/forms/${id}`), onSuccess: invalidate(qc, 'applications') });
+}
+export function usePostAppPanel() {
+  return useMutation({ mutationFn: (b: { id: string; channelId: string }) => apiPost(`/applications/forms/${b.id}/panel`, { channelId: b.channelId }) });
+}
+
+// Weekly digest
+export interface DigestConfig {
+  guildId: string;
+  enabled: boolean;
+  channelId: string | null;
+  weekday: number;
+  lastSentKey: string | null;
+}
+export const useDigest = () => useQuery<DigestConfig>({ queryKey: ['digest'], queryFn: () => api('/digest') });
+export function useUpdateDigest() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: Partial<DigestConfig>) => apiPut('/digest/config', b), onSuccess: invalidate(qc, 'digest') });
+}
+export function useTestDigest() {
+  return useMutation({ mutationFn: () => apiPost('/digest/test') });
+}
+
+// Booster tracking
+export interface BoosterConfig {
+  guildId: string;
+  enabled: boolean;
+  announceChannelId: string | null;
+  message: string | null;
+  perkRoleIds: string[];
+  coinBonus: number;
+}
+export interface BoosterRecord {
+  guildId: string;
+  userId: string;
+  startedAt: string;
+  active: boolean;
+}
+export const useBoosters = () =>
+  useQuery<{ config: BoosterConfig; boosters: BoosterRecord[] }>({ queryKey: ['boosters'], queryFn: () => api('/boosters') });
+export function useUpdateBoosters() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: Partial<BoosterConfig>) => apiPut('/boosters/config', b), onSuccess: invalidate(qc, 'boosters') });
+}
+
+// Churn alerts
+export interface AlertConfig {
+  guildId: string;
+  enabled: boolean;
+  alertChannelId: string | null;
+  leaveSpikeEnabled: boolean;
+  leaveSpikeThreshold: number;
+  activityDropEnabled: boolean;
+  activityDropPct: number;
+  joinSpikeEnabled: boolean;
+  joinSpikeThreshold: number;
+}
+export const useAlerts = () => useQuery<AlertConfig>({ queryKey: ['alerts'], queryFn: () => api('/alerts') });
+export function useUpdateAlerts() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (b: Partial<AlertConfig>) => apiPut('/alerts', b), onSuccess: invalidate(qc, 'alerts') });
+}
+
+// Staff report
+export interface StaffRow {
+  userId: string;
+  tag: string | null;
+  modActions: number;
+  ticketsClaimed: number;
+  ticketsClosed: number;
+  inactive: boolean;
+}
+export const useStaffReport = (days: number) =>
+  useQuery<{ days: number; rows: StaffRow[] }>({ queryKey: ['staffreport', days], queryFn: () => api(`/staffreport?days=${days}`) });
