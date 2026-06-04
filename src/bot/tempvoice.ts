@@ -132,22 +132,34 @@ export async function handleTempLeave(guild: Guild, prisma: PrismaClient, channe
   await prisma.tempVoiceChannel.delete({ where: { channelId } }).catch(() => undefined);
 }
 
-/** Prune orphaned/empty temp channels at boot (in-memory state is lost across restarts). */
-export async function reconcileTempVoice(client: Client, prisma: PrismaClient): Promise<void> {
-  const rows = await prisma.tempVoiceChannel.findMany().catch(() => [] as TempVoiceChannel[]);
+/**
+ * Prune orphaned/empty temp channels at boot (in-memory state is lost across restarts).
+ * Fleet-safety (SaaS Phase 0): strictly scoped to ONE guild — this client may not even
+ * see other tenants' guilds, and must never touch their rows.
+ */
+export async function reconcileTempVoice(client: Client, prisma: PrismaClient, guildId: string): Promise<void> {
+  const rows = await prisma.tempVoiceChannel.findMany({ where: { guildId } }).catch(() => [] as TempVoiceChannel[]);
+  let pruned = 0;
   for (const row of rows) {
+    // Defense in depth: never act on another guild's row even if the query was wrong.
+    if (row.guildId !== guildId) continue;
     const guild = client.guilds.cache.get(row.guildId);
-    const channel = guild?.channels.cache.get(row.channelId) as VoiceChannel | undefined;
+    // Guild not visible to this client (cold cache / kicked) — we cannot verify the
+    // channel is truly gone, so leave the row alone.
+    if (!guild) continue;
+    const channel = guild.channels.cache.get(row.channelId) as VoiceChannel | undefined;
     if (!channel) {
       await prisma.tempVoiceChannel.delete({ where: { channelId: row.channelId } }).catch(() => undefined);
+      pruned++;
       continue;
     }
     if (channel.members.size === 0) {
       await channel.delete('Temp voice reconcile — empty at boot').catch(() => undefined);
       await prisma.tempVoiceChannel.delete({ where: { channelId: row.channelId } }).catch(() => undefined);
+      pruned++;
     }
   }
-  if (rows.length) logger.info(`tempvoice: reconciled ${rows.length} channel(s) at boot`);
+  if (rows.length) logger.info(`tempvoice: reconciled ${rows.length} row(s), pruned ${pruned} at boot`);
 }
 
 /* ---- owner actions (all return false when the channel isn't a live temp room) ---- */

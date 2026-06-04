@@ -38,8 +38,10 @@ module.exports = {
     }
 
     // Prune orphaned temp voice rooms (created last session, never cleaned because the bot
-    // restarted before the channels emptied).
-    await reconcileTempVoice(client, prisma).catch((err) => logger.warning(`tempvoice reconcile failed: ${err}`));
+    // restarted before the channels emptied). Scoped to the configured guild (fleet-safety).
+    if (guildId) {
+      await reconcileTempVoice(client, prisma, guildId).catch((err) => logger.warning(`tempvoice reconcile failed: ${err}`));
+    }
 
     // Connect to the Lavalink node (no-op if music is disabled). Never blocks/aborts startup.
     const music = getMusicManager();
