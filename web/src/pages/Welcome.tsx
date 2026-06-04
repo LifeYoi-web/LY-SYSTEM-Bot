@@ -72,6 +72,8 @@ export function Welcome() {
         welcomeDmMessage: d.welcomeDmMessage,
         welcomeMentionDeleteSeconds: d.welcomeMentionDeleteSeconds,
         goodbyeUseCard: d.goodbyeUseCard,
+        welcomeEmbedEnabled: d.welcomeEmbedEnabled,
+        goodbyeEmbedEnabled: d.goodbyeEmbedEnabled,
       },
       { onSuccess: () => toast('تم حفظ إعدادات الترحيب'), onError: () => toast('فشل الحفظ', 'err') },
     );
@@ -122,6 +124,7 @@ export function Welcome() {
           <div className="card card-pad">
             <div className="field"><label>قناة الترحيب</label><Select value={d.welcomeChannelId} onChange={(v) => set('welcomeChannelId', v)} options={channels} placeholder="اختر قناة" /></div>
             <div className="field"><label>نص الترحيب (يدعم Markdown)</label><textarea className="textarea" value={d.welcomeMessage ?? ''} onChange={(e) => set('welcomeMessage', e.target.value)} placeholder={DEFAULT_WELCOME} /><div className="hint">المتغيّرات: {PLACEHOLDERS.join(' · ')}</div></div>
+            <div className="toggle-row"><div><div className="tr-title">إرسال كـ Embed</div><div className="tr-sub">مفعّل: صندوق فاخر بحقول وألوان. مطفأ: نص عادي + البطاقة بعرض كامل بدون صندوق.</div></div><Switch checked={d.welcomeEmbedEnabled} onChange={(v) => set('welcomeEmbedEnabled', v)} /></div>
             <div className="toggle-row"><div><div className="tr-title">بطاقة صورة (PNG)</div><div className="tr-sub">يولّد البوت صورة بأفاتار العضو واسمه فوق خلفية مخصّصة.</div></div><Switch checked={d.welcomeUseCard} onChange={(v) => set('welcomeUseCard', v)} /></div>
             {d.welcomeUseCard && (
               <div className="field">
@@ -237,6 +240,7 @@ export function Welcome() {
         {d.goodbyeEnabled && (
           <>
             <div className="field"><label>نص الوداع</label><textarea className="textarea" value={d.goodbyeMessage ?? ''} onChange={(e) => set('goodbyeMessage', e.target.value)} placeholder={DEFAULT_GOODBYE} /></div>
+            <div className="toggle-row"><div><div className="tr-title">إرسال كـ Embed</div><div className="tr-sub">مطفأ: نص الوداع عادي + بطاقة الوداع بعرض كامل.</div></div><Switch checked={d.goodbyeEmbedEnabled} onChange={(v) => set('goodbyeEmbedEnabled', v)} /></div>
             <div className="toggle-row" style={{ marginBottom: 0 }}><div><div className="tr-title">بطاقة وداع</div><div className="tr-sub">يولّد البوت بطاقة PNG وداع مماثلة لبطاقة الترحيب.</div></div><Switch checked={d.goodbyeUseCard} onChange={(v) => set('goodbyeUseCard', v)} /></div>
           </>
         )}

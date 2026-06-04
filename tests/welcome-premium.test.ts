@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderTemplate, formatAccountAge, parseWelcomeButtons } from '../src/bot/welcome';
+import { renderTemplate, formatAccountAge, parseWelcomeButtons, stripMentionKeepName } from '../src/bot/welcome';
 import { renderWelcomeCard } from '../src/bot/welcomeCard';
 
 describe('renderTemplate (extended placeholders)', () => {
@@ -60,6 +60,22 @@ describe('parseWelcomeButtons', () => {
   it('returns [] on bad input', () => {
     expect(parseWelcomeButtons(null)).toEqual([]);
     expect(parseWelcomeButtons('not-an-array')).toEqual([]);
+  });
+});
+
+describe('stripMentionKeepName', () => {
+  it('replaces the mention with the bold username so the sentence stays readable', () => {
+    expect(stripMentionKeepName('أهلًا وسهلًا <@42> في السيرفر!', '42', 'أحمد')).toBe(
+      'أهلًا وسهلًا **أحمد** في السيرفر!',
+    );
+  });
+
+  it('replaces every occurrence', () => {
+    expect(stripMentionKeepName('<@7> و <@7>', '7', 'X')).toBe('**X** و **X**');
+  });
+
+  it('leaves other mentions and text untouched, and trims', () => {
+    expect(stripMentionKeepName('  <@1> مع <@2> ', '1', 'A')).toBe('**A** مع <@2>');
   });
 });
 

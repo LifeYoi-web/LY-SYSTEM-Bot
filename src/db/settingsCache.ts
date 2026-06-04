@@ -27,6 +27,8 @@ export type EditableSettings = Partial<
     | 'welcomeUseCard'
     | 'welcomeCardBg'
     | 'welcomeCardStyle'
+    | 'welcomeEmbedEnabled'
+    | 'goodbyeEmbedEnabled'
     | 'welcomeButtons'
     | 'welcomeDmEnabled'
     | 'welcomeDmMessage'

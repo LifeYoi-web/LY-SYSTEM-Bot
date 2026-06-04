@@ -53,6 +53,14 @@ export function goodbyeText(template: string | null | undefined, ctx: TemplateCt
   return renderTemplate(template?.trim() || DEFAULT_GOODBYE, ctx);
 }
 
+/**
+ * Replace every `<@id>` mention with the bold username so an embedless welcome can drop
+ * its ping (mention-auto-delete) while the sentence stays readable.
+ */
+export function stripMentionKeepName(content: string, userId: string, username: string): string {
+  return content.split(`<@${userId}>`).join(`**${username}**`).trim();
+}
+
 /* ============================ welcome buttons ============================ */
 
 export interface WelcomeButton {

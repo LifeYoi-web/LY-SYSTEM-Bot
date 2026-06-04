@@ -89,6 +89,8 @@ export interface Settings {
   welcomeUseCard: boolean;
   welcomeCardBg: string | null;
   welcomeCardStyle: string;
+  welcomeEmbedEnabled: boolean;
+  goodbyeEmbedEnabled: boolean;
   welcomeButtons: WelcomeButton[];
   welcomeDmEnabled: boolean;
   welcomeDmMessage: string | null;

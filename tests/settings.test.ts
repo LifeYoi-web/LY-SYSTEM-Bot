@@ -58,6 +58,14 @@ describe('settings router', () => {
     await request(app()).put('/api/settings').send({ language: 'fr' }).expect(400);
   });
 
+  it('PUT / passes the embed toggles through as booleans', async () => {
+    await request(app())
+      .put('/api/settings')
+      .send({ welcomeEmbedEnabled: false, goodbyeEmbedEnabled: true })
+      .expect(200);
+    expect(updateSettings).toHaveBeenCalledWith('g1', { welcomeEmbedEnabled: false, goodbyeEmbedEnabled: true });
+  });
+
   it('PUT / accepts a valid welcomeCardStyle', async () => {
     await request(app()).put('/api/settings').send({ welcomeCardStyle: 'vip-ticket' }).expect(200);
     expect(updateSettings).toHaveBeenCalledWith('g1', { welcomeCardStyle: 'vip-ticket' });

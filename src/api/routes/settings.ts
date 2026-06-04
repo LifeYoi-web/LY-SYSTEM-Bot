@@ -61,7 +61,7 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
       data.staffRoleIds = b.staffRoleIds.map(String);
     }
 
-    for (const k of ['welcomeEnabled', 'goodbyeEnabled', 'welcomeUseCard', 'goodbyeUseCard', 'welcomeDmEnabled'] as const) {
+    for (const k of ['welcomeEnabled', 'goodbyeEnabled', 'welcomeUseCard', 'goodbyeUseCard', 'welcomeDmEnabled', 'welcomeEmbedEnabled', 'goodbyeEmbedEnabled'] as const) {
       if (b[k] !== undefined) data[k] = Boolean(b[k]);
     }
     for (const k of ['welcomeMessage', 'goodbyeMessage', 'welcomeDmMessage'] as const) {

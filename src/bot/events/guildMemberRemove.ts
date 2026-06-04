@@ -75,11 +75,18 @@ async function sendGoodbye(channel: TextChannel, member: GuildMember | PartialGu
         variant: 'goodbye',
       });
       files.push(new AttachmentBuilder(buffer, { name: 'goodbye.png' }));
-      embed.setImage('attachment://goodbye.png');
+      if (settings.goodbyeEmbedEnabled) embed.setImage('attachment://goodbye.png');
     } catch (err) {
       logger.warning(`goodbye card render failed: ${err}`);
     }
   }
 
-  await channel.send({ embeds: [embed], files, allowedMentions: { parse: [] } }).catch(() => undefined);
+  // Embedless mode: plain goodbye text + the card as a bare attachment.
+  await channel
+    .send(
+      settings.goodbyeEmbedEnabled
+        ? { embeds: [embed], files, allowedMentions: { parse: [] } }
+        : { content: text, files, allowedMentions: { parse: [] } },
+    )
+    .catch(() => undefined);
 }

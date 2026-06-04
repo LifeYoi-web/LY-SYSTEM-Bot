@@ -11,7 +11,7 @@ import {
 import { prisma } from '../../db/prisma';
 import { getSettings } from '../../db/settingsCache';
 import { bump } from '../stats';
-import { welcomeText, parseWelcomeButtons, formatAccountAge, renderTemplate, type WelcomeButton } from '../welcome';
+import { welcomeText, parseWelcomeButtons, formatAccountAge, renderTemplate, stripMentionKeepName, type WelcomeButton } from '../welcome';
 import { renderWelcomeCard } from '../welcomeCard';
 import { logEvent } from '../logging';
 import { logger } from '../../shared/logger';
@@ -153,7 +153,7 @@ async function sendPremiumWelcome(channel: TextChannel, member: GuildMember, set
       });
       const att = new AttachmentBuilder(buffer, { name: 'welcome.png' });
       files.push(att);
-      embed.setImage('attachment://welcome.png');
+      if (settings.welcomeEmbedEnabled) embed.setImage('attachment://welcome.png');
     } catch (err) {
       logger.warning(`welcome card render failed: ${err}`);
     }
@@ -163,18 +163,36 @@ async function sendPremiumWelcome(channel: TextChannel, member: GuildMember, set
   const row = buildButtonRow(buttons);
   const components = row ? [row] : [];
 
+  // Embedless mode: the text is the message itself; the card shows as a bare full-width attachment.
+  const mention = `<@${member.id}>`;
+  const content = settings.welcomeEmbedEnabled
+    ? mention
+    : description.includes(mention)
+      ? description
+      : `${mention} ${description}`;
+
   const message = await channel
-    .send({ content: `<@${member.id}>`, embeds: [embed], components, files, allowedMentions: { users: [member.id] } })
+    .send({
+      content,
+      embeds: settings.welcomeEmbedEnabled ? [embed] : [],
+      components,
+      files,
+      allowedMentions: { users: [member.id] },
+    })
     .catch((err) => {
       logger.warning(`welcome send failed: ${err}`);
       return null;
     });
 
   // Optional: strip the @mention from the message after a delay (still pings on send, then cleans up).
+  // Embed mode clears the content (text lives in the embed); embedless mode keeps the text readable.
   const delay = settings.welcomeMentionDeleteSeconds;
   if (message && delay > 0 && delay <= 60) {
+    const cleaned = settings.welcomeEmbedEnabled
+      ? ''
+      : stripMentionKeepName(content, member.id, member.user.username);
     setTimeout(() => {
-      message.edit({ content: '', allowedMentions: { parse: [] } }).catch(() => undefined);
+      message.edit({ content: cleaned, allowedMentions: { parse: [] } }).catch(() => undefined);
     }, delay * 1000).unref();
   }
 }
