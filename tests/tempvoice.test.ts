@@ -136,4 +136,21 @@ describe('reconcileTempVoice (fleet-safety)', () => {
     expect(channel.delete).not.toHaveBeenCalled();
     expect(prisma.tempVoiceChannel.delete).not.toHaveBeenCalled();
   });
+
+  it('mixed batch: deletes exactly the right row and leaves foreign/occupied rows alone', async () => {
+    const occupied = { members: new Map([['u9', {}]]), delete: vi.fn() };
+    const prisma = reconcilePrisma([
+      { channelId: 'c1', guildId: 'g1', ownerId: 'u1' }, // channel gone → row deleted
+      { channelId: 'cB', guildId: 'gB', ownerId: 'u2' }, // foreign row → untouched
+      { channelId: 'c2', guildId: 'g1', ownerId: 'u3' }, // occupied → untouched
+    ]);
+    const client = reconcileClient({
+      g1: { channels: { cache: new Map([['c2', occupied]]) } },
+      gB: { channels: { cache: new Map() } },
+    });
+    await reconcileTempVoice(client, prisma, 'g1');
+    expect(prisma.tempVoiceChannel.delete).toHaveBeenCalledTimes(1);
+    expect(prisma.tempVoiceChannel.delete).toHaveBeenCalledWith({ where: { channelId: 'c1' } });
+    expect(occupied.delete).not.toHaveBeenCalled();
+  });
 });
