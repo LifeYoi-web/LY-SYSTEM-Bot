@@ -49,6 +49,7 @@ export async function flushStats(
   memberCount?: number,
 ): Promise<number> {
   const prefix = `${guildId}|`;
+  // No allowlist check needed here — buckets can only exist for guilds bump() allowed.
   const entries = [...buckets.entries()].filter(([key]) => key.startsWith(prefix));
   let persisted = 0;
   for (const [key, b] of entries) {

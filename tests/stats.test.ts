@@ -63,4 +63,24 @@ describe('stats aggregator', () => {
     // counts merged back into the buffer for the next flush
     expect(_peekStats().get('g1|' + new Date().toISOString().slice(0, 10))?.messages).toBe(3);
   });
+
+  it('restores the bucket after a failed flush with no intervening bump (normal failure path)', async () => {
+    bump('g1', 'messages', 2);
+    bump('g1', 'leaves');
+    const upsert = vi.fn().mockRejectedValueOnce(new Error('db down'));
+    await flushStats({ dailyStat: { upsert } } as any, 'g1');
+    // The bucket was deleted before the upsert; the catch must re-create it whole.
+    const key = 'g1|' + new Date().toISOString().slice(0, 10);
+    expect(_peekStats().get(key)).toMatchObject({ messages: 2, leaves: 1 });
+  });
+
+  it('a failed g1 flush leaves g2 buckets untouched (cross-tenant isolation on the error path)', async () => {
+    allowStatsGuild('g2');
+    bump('g1', 'messages');
+    bump('g2', 'messages', 5);
+    const upsert = vi.fn().mockRejectedValueOnce(new Error('db down'));
+    await flushStats({ dailyStat: { upsert } } as any, 'g1');
+    const g2key = 'g2|' + new Date().toISOString().slice(0, 10);
+    expect(_peekStats().get(g2key)?.messages).toBe(5);
+  });
 });
