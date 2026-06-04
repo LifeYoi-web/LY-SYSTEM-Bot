@@ -31,6 +31,7 @@ model GuildSettings {
   // Premium welcome / goodbye (luxury embed + optional rendered card image)
   welcomeUseCard            Boolean @default(true)
   welcomeCardBg             String? // base64 data URL for a custom card background (cap ~1.5MB)
+  welcomeCardStyle          String  @default("classic") // welcome card art style key (see WELCOME_CARD_STYLES)
   welcomeButtons            Json    @default("[]") // [{ label, url, emoji? }]
   welcomeDmEnabled          Boolean @default(false)
   welcomeDmMessage          String?

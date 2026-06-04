@@ -88,6 +88,7 @@ export interface Settings {
   // Premium welcome / goodbye
   welcomeUseCard: boolean;
   welcomeCardBg: string | null;
+  welcomeCardStyle: string;
   welcomeButtons: WelcomeButton[];
   welcomeDmEnabled: boolean;
   welcomeDmMessage: string | null;

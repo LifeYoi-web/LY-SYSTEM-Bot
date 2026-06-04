@@ -1,52 +1,24 @@
-import { GlobalFonts, createCanvas, loadImage, type SKRSContext2D } from '@napi-rs/canvas';
-import { join } from 'path';
-import { logger } from '../shared/logger';
+import { loadImage, type SKRSContext2D } from '@napi-rs/canvas';
+import { logger } from '../../../shared/logger';
+import {
+  WIDTH,
+  HEIGHT,
+  ORANGE,
+  BG_DARK,
+  BG_LIGHT,
+  MUTED,
+  truncate,
+  loadAvatar,
+  drawCircularAvatarInto,
+  type WelcomeCardData,
+} from '../helpers';
 
-const ORANGE = '#f57c00';
-const BG_DARK = '#0f1115';
-const BG_LIGHT = '#1a1f2a';
-const MUTED = '#9aa0aa';
-
-const WIDTH = 1200;
-const HEIGHT = 400;
-
-let fontsLoaded = false;
-
-/** Register Cairo (variable font, all weights) once per process. Safe to call repeatedly. */
-function ensureFonts(): void {
-  if (fontsLoaded) return;
-  const path = join(__dirname, '..', '..', 'assets', 'fonts', 'Cairo-Variable.ttf');
-  try {
-    GlobalFonts.registerFromPath(path, 'Cairo');
-    fontsLoaded = true;
-  } catch (err) {
-    logger.warning(`welcomeCard: Cairo font registration failed (${err}) — falling back to system fonts`);
-    fontsLoaded = true; // don't keep retrying
-  }
-}
-
-export interface WelcomeCardData {
-  username: string;
-  avatarUrl: string;
-  position: number; // 1-based member position
-  serverName: string;
-  /** Optional base64 data URL or http URL for a custom background. Falls back to the default gradient. */
-  customBg?: string | null;
-  variant?: 'welcome' | 'goodbye';
-}
-
-/** Render a branded welcome (or goodbye) card to a PNG buffer. Never throws. */
-export async function renderWelcomeCard(d: WelcomeCardData): Promise<Buffer> {
-  ensureFonts();
-  const canvas = createCanvas(WIDTH, HEIGHT);
-  const ctx = canvas.getContext('2d');
-
+/** The original LY card: dark gradient + orange diagonal stripes, ringed avatar, RTL text. */
+export async function drawClassic(ctx: SKRSContext2D, d: WelcomeCardData): Promise<void> {
   await drawBackground(ctx, d.customBg ?? null);
   drawAccentStrip(ctx);
-  await drawAvatar(ctx, d.avatarUrl);
+  await drawAvatar(ctx, d);
   drawText(ctx, d);
-
-  return canvas.toBuffer('image/png');
 }
 
 async function drawBackground(ctx: SKRSContext2D, customBg: string | null): Promise<void> {
@@ -57,9 +29,7 @@ async function drawBackground(ctx: SKRSContext2D, customBg: string | null): Prom
       const ratio = Math.max(WIDTH / img.width, HEIGHT / img.height);
       const w = img.width * ratio;
       const h = img.height * ratio;
-      const x = (WIDTH - w) / 2;
-      const y = (HEIGHT - h) / 2;
-      ctx.drawImage(img, x, y, w, h);
+      ctx.drawImage(img, (WIDTH - w) / 2, (HEIGHT - h) / 2, w, h);
       // dark overlay so text stays legible regardless of the user's image
       ctx.fillStyle = 'rgba(15, 17, 21, 0.45)';
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -88,8 +58,7 @@ async function loadCustomBackground(src: string) {
   if (src.startsWith('data:')) {
     const comma = src.indexOf(',');
     if (comma < 0) throw new Error('invalid data url');
-    const buf = Buffer.from(src.slice(comma + 1), 'base64');
-    return loadImage(buf);
+    return loadImage(Buffer.from(src.slice(comma + 1), 'base64'));
   }
   return loadImage(src);
 }
@@ -100,31 +69,17 @@ function drawAccentStrip(ctx: SKRSContext2D): void {
   ctx.fillRect(WIDTH - 14, 0, 14, HEIGHT);
 }
 
-async function drawAvatar(ctx: SKRSContext2D, avatarUrl: string): Promise<void> {
+async function drawAvatar(ctx: SKRSContext2D, d: WelcomeCardData): Promise<void> {
   const size = 220;
-  const x = WIDTH - 280;
-  const y = (HEIGHT - size) / 2;
-  const cx = x + size / 2;
-  const cy = y + size / 2;
+  const cx = WIDTH - 280 + size / 2;
+  const cy = HEIGHT / 2;
   // Orange ring
   ctx.beginPath();
   ctx.arc(cx, cy, size / 2 + 8, 0, Math.PI * 2);
   ctx.fillStyle = ORANGE;
   ctx.fill();
-  // Clip to circle and draw the avatar
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
-  ctx.clip();
-  try {
-    const img = await loadImage(avatarUrl);
-    ctx.drawImage(img, x, y, size, size);
-  } catch {
-    // Placeholder: dark fill with an initial-ish swatch
-    ctx.fillStyle = BG_LIGHT;
-    ctx.fillRect(x, y, size, size);
-  }
-  ctx.restore();
+  const img = await loadAvatar(d.avatarUrl);
+  drawCircularAvatarInto(ctx, img, d.username, cx, cy, size / 2);
 }
 
 function drawText(ctx: SKRSContext2D, d: WelcomeCardData): void {
@@ -150,8 +105,4 @@ function drawText(ctx: SKRSContext2D, d: WelcomeCardData): void {
   // Footer decoration: thin orange underline aligned to the right
   ctx.fillStyle = ORANGE;
   ctx.fillRect(right - 200, 300, 200, 3);
-}
-
-function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
