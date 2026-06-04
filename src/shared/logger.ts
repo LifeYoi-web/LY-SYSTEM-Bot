@@ -16,11 +16,10 @@ const TOKEN_TRIPLET = /[A-Za-z0-9_-]{20,512}\.[A-Za-z0-9_-]{5,512}\.[A-Za-z0-9_-
 const AUTH_PREFIX = /\b(Bot|Bearer)\s+[A-Za-z0-9_\-.=+/]{20,512}/g; // auth-header style (bounds for consistency)
 
 export function redact(rawMessage: string): string {
-  // Hard cap: redaction runs on EVERY log line — never let one huge message stall the loop.
-  // 4096 chars covers any real log line; tokens always appear near the start of a message.
-  let message = rawMessage.length > 4_096
-    ? rawMessage.slice(0, 4_096) + '…[truncated]'
-    : rawMessage;
+  // Hard cap (belt-and-suspenders): redaction runs on EVERY log line. The bounded
+  // regexes are linear, so 50k only guards truly pathological messages without
+  // truncating real error dumps (DiscordAPIError bodies can exceed 4k).
+  const message = rawMessage.length > 50_000 ? rawMessage.slice(0, 50_000) + '…[truncated]' : rawMessage;
   return message.replace(TOKEN_TRIPLET, '[REDACTED]').replace(AUTH_PREFIX, '$1 [REDACTED]');
 }
 

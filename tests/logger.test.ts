@@ -28,7 +28,12 @@ describe('redact', () => {
     const huge = 'A'.repeat(50_000) + '.' + 'A'.repeat(50_000);
     const t0 = performance.now();
     redact(huge);
-    expect(performance.now() - t0).toBeLessThan(150); // generous CI budget; unbounded regex took >10s
+    expect(performance.now() - t0).toBeLessThan(500); // unbounded regex took >10s here
+  });
+
+  it('does not truncate realistic long error dumps (<50k)', () => {
+    const dump = 'DiscordAPIError: '.padEnd(10_000, 'x');
+    expect(redact(dump)).toBe(dump);
   });
 });
 
