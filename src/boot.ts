@@ -40,16 +40,24 @@ export async function boot(deps: BootDeps): Promise<void> {
     .catch((err) => deps.logError(`Command registration failed (continuing): ${err}`));
 }
 
-/** Keep retrying login on an interval until it succeeds; never throws. */
+/** Keep retrying login on an interval until it succeeds; never throws.
+ *  The in-flight guard prevents overlapping login() calls — a concurrent
+ *  client.login() on a connecting client throws and destroys the socket. */
 function retryLogin(deps: BootDeps, intervalMs = 60_000): void {
+  let inFlight = false;
   const handle = setInterval(() => {
+    if (inFlight) return;
+    inFlight = true;
     void deps
       .login()
       .then(() => {
         clearInterval(handle);
         deps.logInfo('Discord login retry succeeded');
       })
-      .catch((err) => deps.logError(`Discord login retry failed: ${err}`));
+      .catch((err) => deps.logError(`Discord login retry failed: ${err}`))
+      .finally(() => {
+        inFlight = false;
+      });
   }, intervalMs);
   (handle as { unref?: () => void }).unref?.();
 }

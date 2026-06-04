@@ -96,4 +96,28 @@ describe('boot', () => {
       vi.useRealTimers();
     }
   });
+
+  it('never overlaps login attempts when one hangs across a tick boundary', async () => {
+    vi.useFakeTimers();
+    try {
+      const deps = baseDeps();
+      let hangingResolves = 0;
+      deps.login = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('net down')) // boot attempt fails → retry loop armed
+        .mockImplementation(
+          () =>
+            new Promise(() => {
+              hangingResolves++; // retry #1 hangs forever
+            }),
+        );
+      await boot(deps as any);
+      await vi.advanceTimersByTimeAsync(60_000); // retry #1 fires and hangs
+      await vi.advanceTimersByTimeAsync(180_000); // 3 more ticks — must all be skipped
+      expect(deps.login).toHaveBeenCalledTimes(2); // boot + the single hanging retry
+      expect(hangingResolves).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
