@@ -40,10 +40,10 @@ describe('liftExpiredCases', () => {
       },
       logEntry: { create: vi.fn().mockResolvedValue(undefined) },
     };
-    const n = await liftExpiredCases({ guild, prisma } as any);
+    const n = await liftExpiredCases({ guild, prisma } as any, 'g1');
     expect(n).toBe(2);
     expect(prisma.moderationCase.findMany).toHaveBeenCalledWith({
-      where: { active: true, expiresAt: { not: null, lte: expect.any(Date) } },
+      where: { guildId: 'g1', active: true, expiresAt: { not: null, lte: expect.any(Date) } },
     });
     expect(guild.members.unban).toHaveBeenCalledWith('u1', expect.any(String));
     expect(member.timeout).toHaveBeenCalledWith(null, expect.any(String));
@@ -52,6 +52,6 @@ describe('liftExpiredCases', () => {
   it('returns 0 when nothing is expired', async () => {
     const prisma = { moderationCase: { findMany: vi.fn().mockResolvedValue([]) }, logEntry: { create: vi.fn() } };
     const guild = { members: {} };
-    expect(await liftExpiredCases({ guild, prisma } as any)).toBe(0);
+    expect(await liftExpiredCases({ guild, prisma } as any, 'g1')).toBe(0);
   });
 });

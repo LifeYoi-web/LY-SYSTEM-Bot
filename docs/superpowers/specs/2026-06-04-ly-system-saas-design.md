@@ -144,7 +144,7 @@ model PaymentRecord {
 - Resume is explicit: extending the row re-spawns the client, re-arms the scheduler tenant, resets presence.
 
 ### 6.5 Scheduler (multi-tenant)
-- One process timer. Each tick iterates **active** tenants and runs the existing tasks with that tenant's `(client, guildId)`. The tasks are already `guildId`-filtered (verified: `endDueGiveaways`, `fireDueReminders`, `announceBirthdays`, `refreshStatCounters`, `expireShopRoles`, `sweepRaids`, `postWeeklyDigest`, `runChurnAlerts`, `postDueScheduled`, `liftExpiredCases`, `sweepVoiceXp`, `pollCreatorContent`, `expireDueRoles`).
+- One process timer. Each tick iterates **active** tenants and runs the existing tasks with that tenant's `(client, guildId)`. The tasks are already `guildId`-filtered (verified: `endDueGiveaways`, `fireDueReminders`, `announceBirthdays`, `refreshStatCounters`, `expireShopRoles`, `sweepRaids`, `postWeeklyDigest`, `runChurnAlerts`, `postDueScheduled`, `liftExpiredCases`, `sweepVoiceXp`, `pollCreatorContent`, `expireDueRoles`). *(Correction 2026-06-04: `liftExpiredCases` was in fact NOT guildId-filtered — fixed in Phase 0.)*
 - **Bug fixes required before fleet (Phase 0):**
   - `src/bot/tempvoice.ts:137` `reconcileTempVoice` does `findMany()` with **no** `where` and **deletes** rows whose guild isn't cached → in a fleet it deletes other tenants' rooms. Fix: scope to the tenant's `guildId`; guard the delete so it only runs when the row's `guildId` matches and the channel is truly gone.
   - `src/bot/scheduler.ts` `flushStats` iterates `client.guilds.cache.values()` (all guilds a client sees). Scope strictly to the tenant `guildId`; add a startup guard that refuses to operate on any guild other than the tenant's configured one.

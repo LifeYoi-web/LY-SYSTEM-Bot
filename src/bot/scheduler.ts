@@ -16,9 +16,10 @@ import { sweepVoiceXp } from './voiceXp';
 import { pollCreatorContent } from './creator/poll';
 import { logger } from '../shared/logger';
 
-export async function liftExpiredCases(deps: ActionDeps): Promise<number> {
+/** Lift (unban/untimeout) cases whose expiry passed — strictly for ONE guild (fleet-safety). */
+export async function liftExpiredCases(deps: ActionDeps, guildId: string): Promise<number> {
   const expired = await deps.prisma.moderationCase.findMany({
-    where: { active: true, expiresAt: { not: null, lte: new Date() } },
+    where: { guildId, active: true, expiresAt: { not: null, lte: new Date() } },
   });
   for (const c of expired) {
     await liftCase(deps, c.id);
@@ -120,7 +121,7 @@ export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS
     const guild = deps.client.guilds.cache.get(deps.guildId);
     if (!guild) return;
     try {
-      const n = await liftExpiredCases({ guild: guild as unknown as GuildLike, prisma: deps.prisma });
+      const n = await liftExpiredCases({ guild: guild as unknown as GuildLike, prisma: deps.prisma }, deps.guildId);
       if (n > 0) logger.info(`Scheduler lifted ${n} expired case(s)`);
     } catch (err) {
       logger.error(`Scheduler error: ${err}`);
