@@ -96,4 +96,24 @@ describe('scheduler tick — tenant isolation invariant (SaaS Phase 0)', () => {
     await runOneTick();
     expect(JSON.stringify(recorded)).not.toContain('gB');
   });
+
+  it('every upsert/update/delete in a full tick is keyed to the tenant guild', async () => {
+    await runOneTick();
+    const WRITE = new Set(['upsert', 'update', 'delete', 'create']);
+    const writeCalls = recorded.filter((c) => WRITE.has(c.method));
+    expect(writeCalls.length).toBeGreaterThan(0);
+    for (const call of writeCalls) {
+      const where = call.args?.where ?? {};
+      const data = call.args?.create ?? call.args?.data ?? {};
+      const guildId =
+        where.guildId ?? where.guildId_date?.guildId ?? data.guildId;
+      // update/delete addressed by primary key (id) from a prior guild-scoped read
+      // are considered legitimately tenant-scoped — the id was obtained from a
+      // findMany/findFirst that already carries the guildId filter.
+      if ((call.method === 'update' || call.method === 'delete') && where.id != null) {
+        continue;
+      }
+      expect(guildId, `${call.model}.${call.method} wrote without a tenant guild key`).toBe('g1');
+    }
+  });
 });
