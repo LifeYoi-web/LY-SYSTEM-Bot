@@ -14,11 +14,21 @@ interface Bucket {
 // flushes them to DailyStat periodically so we never write a DB row per message.
 const buckets = new Map<string, Bucket>();
 
+// Fleet-safety guard (SaaS Phase 0, spec §6.5): events fire for ANY guild a bot
+// was invited to — only configured tenant guilds may ever be counted.
+const allowedGuilds = new Set<string>();
+
+/** Register a guild whose activity may be counted (called once per tenant at startup). */
+export function allowStatsGuild(guildId: string): void {
+  allowedGuilds.add(guildId);
+}
+
 function keyOf(guildId: string, date = utcDateKey()): string {
   return `${guildId}|${date}`;
 }
 
 export function bump(guildId: string, field: StatField, by = 1): void {
+  if (!allowedGuilds.has(guildId)) return;
   const key = keyOf(guildId);
   let b = buckets.get(key);
   if (!b) {
@@ -29,19 +39,21 @@ export function bump(guildId: string, field: StatField, by = 1): void {
 }
 
 /**
- * Persist and clear all pending counters. `memberCounts` lets the caller record a
- * fresh member-count snapshot per guild alongside the increments.
+ * Persist and clear pending counters for ONE guild (other tenants' buckets stay
+ * buffered for their own tick). `memberCount` records a fresh snapshot alongside
+ * the increments.
  */
 export async function flushStats(
   prisma: PrismaClient,
-  memberCounts: Record<string, number> = {},
+  guildId: string,
+  memberCount?: number,
 ): Promise<number> {
-  const entries = [...buckets.entries()];
-  buckets.clear();
+  const prefix = `${guildId}|`;
+  const entries = [...buckets.entries()].filter(([key]) => key.startsWith(prefix));
   let persisted = 0;
   for (const [key, b] of entries) {
-    const [guildId, date] = key.split('|');
-    const memberCount = memberCounts[guildId];
+    buckets.delete(key);
+    const date = key.slice(prefix.length);
     try {
       await prisma.dailyStat.upsert({
         where: { guildId_date: { guildId, date } },
@@ -75,6 +87,7 @@ export async function flushStats(
 /** Test helpers. */
 export function _resetStats(): void {
   buckets.clear();
+  allowedGuilds.clear();
 }
 export function _peekStats(): Map<string, Bucket> {
   return new Map(buckets);

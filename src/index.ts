@@ -9,9 +9,11 @@ import { startApiServer } from './api/server';
 import { startScheduler } from './bot/scheduler';
 import { initMusicManager } from './bot/music/manager';
 import { boot } from './boot';
+import { allowStatsGuild } from './bot/stats';
 
 async function main() {
   const config = loadConfig();
+  allowStatsGuild(config.guildId); // fleet-safety: only the tenant guild is counted
 
   const commands = loadCommands();
   loadEvents(client, commands);

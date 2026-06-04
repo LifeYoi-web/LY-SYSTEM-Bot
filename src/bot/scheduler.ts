@@ -70,10 +70,11 @@ export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS
   let lastTrendCheck = 0;
 
   const tick = async () => {
-    // Flush buffered activity counters for every guild the bot can see.
-    const memberCounts: Record<string, number> = {};
-    for (const g of deps.client.guilds.cache.values()) memberCounts[g.id] = g.memberCount;
-    await flushStats(deps.prisma, memberCounts).catch((err) => logger.error(`Stats flush error: ${err}`));
+    // Flush buffered activity counters — strictly the tenant guild (fleet-safety).
+    const tenantGuild = deps.client.guilds.cache.get(deps.guildId);
+    await flushStats(deps.prisma, deps.guildId, tenantGuild?.memberCount).catch((err) =>
+      logger.error(`Stats flush error: ${err}`),
+    );
 
     const posted = await postDueScheduled(deps).catch((err) => {
       logger.error(`Scheduled post error: ${err}`);
