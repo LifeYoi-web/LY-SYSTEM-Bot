@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { loadConfig } from './shared/config';
 import { logger } from './shared/logger';
-import { client } from './bot/client';
+import { client, attachClientErrorHandlers } from './bot/client';
 import { loadCommands, registerCommands, loadEvents } from './bot/loader';
 import { prisma } from './db/prisma';
 import { ensureGuildSettings } from './db/settingsCache';
@@ -17,6 +17,7 @@ async function main() {
 
   const commands = loadCommands();
   loadEvents(client, commands);
+  attachClientErrorHandlers(client, 'bot');
 
   // Build the music manager (gated: no-op without LAVALINK_*). Must exist before `ready` fires.
   initMusicManager(client, config);
