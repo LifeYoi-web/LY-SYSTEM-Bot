@@ -23,6 +23,13 @@ describe('redact', () => {
     const msg = 'Bot is online as: LY-SYSTEM#8787 — v1.2.3 ready';
     expect(redact(msg)).toBe(msg);
   });
+
+  it('stays fast on pathological long input (ReDoS guard)', () => {
+    const huge = 'A'.repeat(50_000) + '.' + 'A'.repeat(50_000);
+    const t0 = performance.now();
+    redact(huge);
+    expect(performance.now() - t0).toBeLessThan(150); // generous CI budget; unbounded regex took >10s
+  });
 });
 
 describe('logger output redaction', () => {
