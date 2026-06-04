@@ -36,6 +36,7 @@ async function main() {
       }),
     registerCommands: () => registerCommands(commands, config.discordToken, config.clientId, config.guildId),
     logError: (msg) => logger.error(msg),
+    logInfo: (msg) => logger.info(msg),
   });
 }
 
