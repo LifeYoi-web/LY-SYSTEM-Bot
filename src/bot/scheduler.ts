@@ -65,69 +65,79 @@ export async function postDueScheduled(deps: SchedulerDeps, now: Date = new Date
   return due.length;
 }
 
+/** Throttle/once-per-day bookkeeping carried across ticks (one per tenant in the fleet). */
+export interface TickState {
+  lastStatRefresh: number;
+  lastBirthdayKey: string;
+  lastTrendCheck: number;
+}
+
+export function createTickState(): TickState {
+  return { lastStatRefresh: 0, lastBirthdayKey: '', lastTrendCheck: 0 };
+}
+
+/** One scheduler pass for one tenant guild. Exported so tests can run a single tick. */
+export async function runSchedulerTick(deps: SchedulerDeps, state: TickState): Promise<void> {
+  // Flush buffered activity counters — strictly the tenant guild (fleet-safety).
+  const tenantGuild = deps.client.guilds.cache.get(deps.guildId);
+  await flushStats(deps.prisma, deps.guildId, tenantGuild?.memberCount).catch((err) =>
+    logger.error(`Stats flush error: ${err}`),
+  );
+
+  const posted = await postDueScheduled(deps).catch((err) => {
+    logger.error(`Scheduled post error: ${err}`);
+    return 0;
+  });
+  if (posted > 0) logger.info(`Scheduler posted ${posted} scheduled message(s)`);
+
+  // Time-based community tasks.
+  await endDueGiveaways(deps).catch((err) => logger.error(`Giveaway end error: ${err}`));
+  await fireDueReminders(deps).catch((err) => logger.error(`Reminder error: ${err}`));
+
+  // Voice-activity XP (pro-rated to the elapsed tick), temp-role expiry, raid lock auto-lift.
+  await sweepVoiceXp(deps.client, deps.prisma, deps.guildId).catch((err) => logger.error(`Voice XP error: ${err}`));
+  await expireShopRoles(deps).catch((err) => logger.error(`Shop expiry error: ${err}`));
+  await sweepRaids(deps).catch(() => undefined);
+
+  // Aggregate-trend tasks (weekly digest + churn alerts), throttled to ~30 min.
+  if (Date.now() - state.lastTrendCheck > 1_800_000) {
+    state.lastTrendCheck = Date.now();
+    await postWeeklyDigest(deps).catch((err) => logger.error(`Digest error: ${err}`));
+    await runChurnAlerts(deps).catch((err) => logger.error(`Alerts error: ${err}`));
+  }
+
+  // Creator content (YouTube/TikTok new uploads). Self-throttles per source inside the task.
+  const newVids = await pollCreatorContent(deps).catch((err) => {
+    logger.error(`Creator poll error: ${err}`);
+    return 0;
+  });
+  if (newVids > 0) logger.info(`Scheduler announced ${newVids} new creator upload(s)`);
+
+  // Stat-counter channels: throttled to ~10 min (Discord rate-limits channel renames).
+  if (Date.now() - state.lastStatRefresh > 600_000) {
+    state.lastStatRefresh = Date.now();
+    await refreshStatCounters(deps).catch((err) => logger.error(`StatCounter error: ${err}`));
+  }
+  // Birthdays: once per UTC day (re-announces on restart, which is acceptable).
+  const dayKey = new Date().toISOString().slice(0, 10);
+  if (dayKey !== state.lastBirthdayKey) {
+    state.lastBirthdayKey = dayKey;
+    await announceBirthdays(deps).catch((err) => logger.error(`Birthday error: ${err}`));
+  }
+
+  const guild = deps.client.guilds.cache.get(deps.guildId);
+  if (!guild) return;
+  try {
+    const n = await liftExpiredCases({ guild: guild as unknown as GuildLike, prisma: deps.prisma }, deps.guildId);
+    if (n > 0) logger.info(`Scheduler lifted ${n} expired case(s)`);
+  } catch (err) {
+    logger.error(`Scheduler error: ${err}`);
+  }
+}
+
 export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS.Timeout {
-  let lastStatRefresh = 0;
-  let lastBirthdayKey = '';
-  let lastTrendCheck = 0;
-
-  const tick = async () => {
-    // Flush buffered activity counters — strictly the tenant guild (fleet-safety).
-    const tenantGuild = deps.client.guilds.cache.get(deps.guildId);
-    await flushStats(deps.prisma, deps.guildId, tenantGuild?.memberCount).catch((err) =>
-      logger.error(`Stats flush error: ${err}`),
-    );
-
-    const posted = await postDueScheduled(deps).catch((err) => {
-      logger.error(`Scheduled post error: ${err}`);
-      return 0;
-    });
-    if (posted > 0) logger.info(`Scheduler posted ${posted} scheduled message(s)`);
-
-    // Time-based community tasks.
-    await endDueGiveaways(deps).catch((err) => logger.error(`Giveaway end error: ${err}`));
-    await fireDueReminders(deps).catch((err) => logger.error(`Reminder error: ${err}`));
-
-    // Voice-activity XP (pro-rated to the elapsed tick), temp-role expiry, raid lock auto-lift.
-    await sweepVoiceXp(deps.client, deps.prisma, deps.guildId).catch((err) => logger.error(`Voice XP error: ${err}`));
-    await expireShopRoles(deps).catch((err) => logger.error(`Shop expiry error: ${err}`));
-    await sweepRaids(deps).catch(() => undefined);
-
-    // Aggregate-trend tasks (weekly digest + churn alerts), throttled to ~30 min.
-    if (Date.now() - lastTrendCheck > 1_800_000) {
-      lastTrendCheck = Date.now();
-      await postWeeklyDigest(deps).catch((err) => logger.error(`Digest error: ${err}`));
-      await runChurnAlerts(deps).catch((err) => logger.error(`Alerts error: ${err}`));
-    }
-
-    // Creator content (YouTube/TikTok new uploads). Self-throttles per source inside the task.
-    const newVids = await pollCreatorContent(deps).catch((err) => {
-      logger.error(`Creator poll error: ${err}`);
-      return 0;
-    });
-    if (newVids > 0) logger.info(`Scheduler announced ${newVids} new creator upload(s)`);
-
-    // Stat-counter channels: throttled to ~10 min (Discord rate-limits channel renames).
-    if (Date.now() - lastStatRefresh > 600_000) {
-      lastStatRefresh = Date.now();
-      await refreshStatCounters(deps).catch((err) => logger.error(`StatCounter error: ${err}`));
-    }
-    // Birthdays: once per UTC day (re-announces on restart, which is acceptable).
-    const dayKey = new Date().toISOString().slice(0, 10);
-    if (dayKey !== lastBirthdayKey) {
-      lastBirthdayKey = dayKey;
-      await announceBirthdays(deps).catch((err) => logger.error(`Birthday error: ${err}`));
-    }
-
-    const guild = deps.client.guilds.cache.get(deps.guildId);
-    if (!guild) return;
-    try {
-      const n = await liftExpiredCases({ guild: guild as unknown as GuildLike, prisma: deps.prisma }, deps.guildId);
-      if (n > 0) logger.info(`Scheduler lifted ${n} expired case(s)`);
-    } catch (err) {
-      logger.error(`Scheduler error: ${err}`);
-    }
-  };
-  const handle = setInterval(tick, intervalMs);
+  const state = createTickState();
+  const handle = setInterval(() => void runSchedulerTick(deps, state), intervalMs);
   handle.unref?.();
   return handle;
 }

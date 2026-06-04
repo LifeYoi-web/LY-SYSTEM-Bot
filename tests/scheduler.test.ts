@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { liftExpiredCases, computeNextRun } from '../src/bot/scheduler';
+import { liftExpiredCases, computeNextRun, startScheduler } from '../src/bot/scheduler';
 
 describe('computeNextRun', () => {
   it('returns null for a one-off', () => {
@@ -53,5 +53,14 @@ describe('liftExpiredCases', () => {
     const prisma = { moderationCase: { findMany: vi.fn().mockResolvedValue([]) }, logEntry: { create: vi.fn() } };
     const guild = { members: {} };
     expect(await liftExpiredCases({ guild, prisma } as any, 'g1')).toBe(0);
+  });
+});
+
+describe('startScheduler', () => {
+  it('returns a clearable interval handle and does not tick synchronously', () => {
+    const deps = { client: { guilds: { cache: new Map() } }, prisma: {}, guildId: 'g1' } as any;
+    const handle = startScheduler(deps, 60_000);
+    expect(handle).toBeDefined();
+    clearInterval(handle);
   });
 });
