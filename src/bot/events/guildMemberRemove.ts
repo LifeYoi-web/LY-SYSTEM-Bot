@@ -71,6 +71,7 @@ async function sendGoodbye(channel: TextChannel, member: GuildMember | PartialGu
         position: guild.memberCount,
         serverName: guild.name,
         customBg: settings.welcomeCardBg,
+        style: settings.welcomeCardStyle,
         variant: 'goodbye',
       });
       files.push(new AttachmentBuilder(buffer, { name: 'goodbye.png' }));

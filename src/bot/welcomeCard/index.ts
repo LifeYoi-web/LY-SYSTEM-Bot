@@ -1,11 +1,27 @@
 import { createCanvas } from '@napi-rs/canvas';
 import { ensureFonts, WIDTH, HEIGHT, type StyleDraw, type WelcomeCardData } from './helpers';
 import { drawClassic } from './styles/classic';
+import { drawNeonHud } from './styles/neon-hud';
+import { drawCalligraphyGold } from './styles/calligraphy-gold';
+import { drawAuroraGlass } from './styles/aurora-glass';
+import { drawIslamicStar } from './styles/islamic-star';
+import { drawVipTicket } from './styles/vip-ticket';
+import { drawConstellation } from './styles/constellation';
+import { drawSynthwave } from './styles/synthwave';
+import { drawLiquidGold } from './styles/liquid-gold';
 
 export type { WelcomeCardData } from './helpers';
 
 const REGISTRY: Record<string, { labelAr: string; draw: StyleDraw }> = {
   classic: { labelAr: 'الكلاسيكي', draw: drawClassic },
+  'neon-hud': { labelAr: 'النيون السيبراني', draw: drawNeonHud },
+  'calligraphy-gold': { labelAr: 'حبر وذهب', draw: drawCalligraphyGold },
+  'aurora-glass': { labelAr: 'زجاج الشفق', draw: drawAuroraGlass },
+  'islamic-star': { labelAr: 'النجمة الثمانية', draw: drawIslamicStar },
+  'vip-ticket': { labelAr: 'تذكرة VIP', draw: drawVipTicket },
+  constellation: { labelAr: 'سماء الانضمام', draw: drawConstellation },
+  synthwave: { labelAr: 'الغروب الرقمي', draw: drawSynthwave },
+  'liquid-gold': { labelAr: 'الذهب السائل', draw: drawLiquidGold },
 };
 
 /** Dashboard/API source of truth for selectable card styles. */

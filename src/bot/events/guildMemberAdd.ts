@@ -148,6 +148,7 @@ async function sendPremiumWelcome(channel: TextChannel, member: GuildMember, set
         position: guild.memberCount,
         serverName: guild.name,
         customBg: settings.welcomeCardBg,
+        style: settings.welcomeCardStyle,
         variant: 'welcome',
       });
       const att = new AttachmentBuilder(buffer, { name: 'welcome.png' });

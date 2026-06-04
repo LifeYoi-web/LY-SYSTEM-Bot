@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { AppConfig } from '../../shared/config';
 import { getSettings, updateSettings, type EditableSettings } from '../../db/settingsCache';
+import { WELCOME_CARD_STYLE_KEYS } from '../../bot/welcomeCard';
 
 export interface SettingsDeps {
   config: Pick<AppConfig, 'guildId'>;
@@ -90,6 +91,13 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
         }
       }
       data.welcomeCardBg = v;
+    }
+    if (b.welcomeCardStyle !== undefined) {
+      const v = String(b.welcomeCardStyle);
+      if (!WELCOME_CARD_STYLE_KEYS.includes(v)) {
+        return res.status(400).json({ error: `welcomeCardStyle must be one of ${WELCOME_CARD_STYLE_KEYS.join(', ')}` });
+      }
+      data.welcomeCardStyle = v;
     }
     if (b.welcomeButtons !== undefined) {
       if (!Array.isArray(b.welcomeButtons)) {

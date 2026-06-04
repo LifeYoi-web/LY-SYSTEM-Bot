@@ -57,4 +57,13 @@ describe('settings router', () => {
   it('PUT / 400s on an unsupported language', async () => {
     await request(app()).put('/api/settings').send({ language: 'fr' }).expect(400);
   });
+
+  it('PUT / accepts a valid welcomeCardStyle', async () => {
+    await request(app()).put('/api/settings').send({ welcomeCardStyle: 'vip-ticket' }).expect(200);
+    expect(updateSettings).toHaveBeenCalledWith('g1', { welcomeCardStyle: 'vip-ticket' });
+  });
+
+  it('PUT / 400s on an unknown welcomeCardStyle', async () => {
+    await request(app()).put('/api/settings').send({ welcomeCardStyle: 'comic-sans' }).expect(400);
+  });
 });

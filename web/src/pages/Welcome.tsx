@@ -11,6 +11,19 @@ const DEFAULT_DM = 'أهلًا {username} في {server}! شرفنا انضمام
 
 const PLACEHOLDERS = ['{user}', '{username}', '{server}', '{memberCount}', '{position}', '{accountAge}', '{createdAt}'];
 
+// Must match WELCOME_CARD_STYLES keys in src/bot/welcomeCard (thumbnails in /welcome-styles/<key>.png).
+const CARD_STYLES: { key: string; label: string }[] = [
+  { key: 'classic', label: 'الكلاسيكي' },
+  { key: 'neon-hud', label: 'النيون السيبراني' },
+  { key: 'calligraphy-gold', label: 'حبر وذهب' },
+  { key: 'aurora-glass', label: 'زجاج الشفق' },
+  { key: 'islamic-star', label: 'النجمة الثمانية' },
+  { key: 'vip-ticket', label: 'تذكرة VIP' },
+  { key: 'constellation', label: 'سماء الانضمام' },
+  { key: 'synthwave', label: 'الغروب الرقمي' },
+  { key: 'liquid-gold', label: 'الذهب السائل' },
+];
+
 function render(tpl: string, server: string, count: number) {
   return tpl
     .split('{user}').join('@أحمد')
@@ -53,6 +66,7 @@ export function Welcome() {
         autoRoleId: d.autoRoleId,
         welcomeUseCard: d.welcomeUseCard,
         welcomeCardBg: d.welcomeCardBg,
+        welcomeCardStyle: d.welcomeCardStyle,
         welcomeButtons: d.welcomeButtons,
         welcomeDmEnabled: d.welcomeDmEnabled,
         welcomeDmMessage: d.welcomeDmMessage,
@@ -109,12 +123,39 @@ export function Welcome() {
             <div className="field"><label>قناة الترحيب</label><Select value={d.welcomeChannelId} onChange={(v) => set('welcomeChannelId', v)} options={channels} placeholder="اختر قناة" /></div>
             <div className="field"><label>نص الترحيب (يدعم Markdown)</label><textarea className="textarea" value={d.welcomeMessage ?? ''} onChange={(e) => set('welcomeMessage', e.target.value)} placeholder={DEFAULT_WELCOME} /><div className="hint">المتغيّرات: {PLACEHOLDERS.join(' · ')}</div></div>
             <div className="toggle-row"><div><div className="tr-title">بطاقة صورة (PNG)</div><div className="tr-sub">يولّد البوت صورة بأفاتار العضو واسمه فوق خلفية مخصّصة.</div></div><Switch checked={d.welcomeUseCard} onChange={(v) => set('welcomeUseCard', v)} /></div>
+            {d.welcomeUseCard && (
+              <div className="field">
+                <label>ستايل البطاقة</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                  {CARD_STYLES.map((s) => {
+                    const active = (d.welcomeCardStyle || 'classic') === s.key;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => set('welcomeCardStyle', s.key)}
+                        style={{
+                          padding: 0, cursor: 'pointer', textAlign: 'start', background: 'var(--bg-2)',
+                          border: active ? '2px solid var(--accent)' : '1px solid var(--line, #2a2f3a)',
+                          borderRadius: 10, overflow: 'hidden',
+                          boxShadow: active ? '0 0 0 3px var(--accent-soft)' : 'none',
+                        }}
+                      >
+                        <img src={`/welcome-styles/${s.key}.png`} alt={s.label} style={{ display: 'block', width: '100%', aspectRatio: '3 / 1', objectFit: 'cover' }} />
+                        <div style={{ padding: '6px 8px', fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : undefined }}>{s.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="hint">الخلفية المخصّصة أدناه تعمل مع الستايل «الكلاسيكي» فقط — بقية الستايلات فنّها هو الخلفية.</div>
+              </div>
+            )}
             <div className="field"><label>خلفية مخصّصة للبطاقة (PNG/JPG، ≤ ١٫٥MB)</label>
               <div className="row" style={{ gap: 8 }}>
                 <input ref={fileInput} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadBg(f); }} />
                 <button className="btn btn-ghost btn-sm" onClick={() => fileInput.current?.click()}><Icon name="plus" /> رفع</button>
                 {d.welcomeCardBg && <button className="btn btn-ghost btn-sm" onClick={() => set('welcomeCardBg', null)}><Icon name="trash" /> إزالة</button>}
-                <div className="tr-sub" style={{ flex: 1 }}>{d.welcomeCardBg ? 'خلفية مخصّصة محفوظة' : 'سيُستخدم التدرّج البرتقالي الافتراضي'}</div>
+                <div className="tr-sub" style={{ flex: 1 }}>{d.welcomeCardBg ? 'خلفية مخصّصة محفوظة (تُطبَّق على الكلاسيكي فقط)' : 'تُستخدم خلفية الستايل المختار'}</div>
               </div>
               {d.welcomeCardBg && <img src={d.welcomeCardBg} alt="" style={{ marginTop: 8, maxWidth: '100%', borderRadius: 8, border: '1px solid var(--line, #2a2f3a)' }} />}
             </div>
@@ -169,7 +210,7 @@ export function Welcome() {
                 )}
                 {d.welcomeUseCard && (
                   <div style={{ marginTop: 10, padding: 10, border: '1px dashed var(--line, #2a2f3a)', borderRadius: 8, fontSize: 12, opacity: 0.85 }}>
-                    🖼️ تُولَّد بطاقة PNG لكل عضو (1200×400) — أفاتاره + اسمه فوق {d.welcomeCardBg ? 'الخلفية المخصّصة' : 'التدرّج الافتراضي'}.
+                    🖼️ تُولَّد بطاقة PNG لكل عضو (1200×400) بستايل «{CARD_STYLES.find((s) => s.key === (d.welcomeCardStyle || 'classic'))?.label ?? 'الكلاسيكي'}» — أفاتاره + اسمه فوق الفن المختار.
                   </div>
                 )}
               </div>
