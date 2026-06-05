@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-04
 **Status:** Approved design → ready for implementation planning
+**Amendment (2026-06-05):** the product model changed to **freemium 3-tier** (free shared bot / premium 19 SAR / custom bot 39 SAR) — see `2026-06-05-freemium-tiers-design.md`, which supersedes §1-2 pricing/product rows of this spec. The architecture below (fleet, vault, wizard, payments) still governs the custom-bot tier (now Stage د).
 **Topic:** Turn the single-guild LY-SYSTEM bot+dashboard into a subscription SaaS that sells a **custom bot per customer** (the ProBot/MEE6 "custom bot" model), run as a **fleet of Discord clients inside one Node process**.
 
 ---
