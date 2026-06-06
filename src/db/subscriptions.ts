@@ -1,6 +1,6 @@
 import { prisma } from './prisma';
-
-export type Plan = 'free' | 'premium' | 'custom';
+import type { Plan } from '../shared/entitlements';
+export type { Plan };
 
 const TTL_MS = 5 * 60_000;
 
