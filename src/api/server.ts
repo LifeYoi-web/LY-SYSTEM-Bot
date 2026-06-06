@@ -47,6 +47,7 @@ import { createStaffReportRouter } from './routes/staffreport';
 import { createDigestRouter } from './routes/digest';
 import { createBoostersRouter } from './routes/boosters';
 import { createAlertsRouter } from './routes/alerts';
+import { createEntitlementsRouter } from './routes/entitlements';
 import { requireStaff } from './middleware/requireStaff';
 import { rateLimit } from './middleware/rateLimit';
 
@@ -146,6 +147,7 @@ export function createApp(deps: ApiDeps): Express {
   app.use('/api/digest', requireStaff(), createDigestRouter(deps));
   app.use('/api/boosters', requireStaff(), createBoostersRouter(deps));
   app.use('/api/alerts', requireStaff(), createAlertsRouter(deps));
+  app.use('/api/entitlements', requireStaff(), createEntitlementsRouter({ config: deps.config }));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));
