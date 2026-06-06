@@ -17,6 +17,7 @@ describe('premium command gating', () => {
   it('maps all 13 music commands to the music feature', () => {
     const music = ['play', 'skip', 'pause', 'resume', 'stop', 'disconnect', 'queue', 'nowplaying', 'volume', 'loop', 'shuffle', 'seek', 'lyrics'];
     for (const name of music) expect(PREMIUM_COMMANDS[name]?.key).toBe('music');
+    expect(Object.keys(PREMIUM_COMMANDS)).toHaveLength(13); // pins the ceiling too — an extra entry must update this test
   });
 
   it('blocks a music command for a free guild with the upsell reply', async () => {
