@@ -5,6 +5,7 @@ import { client, attachClientErrorHandlers } from './bot/client';
 import { loadCommands, registerCommands, loadEvents } from './bot/loader';
 import { prisma } from './db/prisma';
 import { ensureGuildSettings } from './db/settingsCache';
+import { seedOwnerPlan } from './db/subscriptions';
 import { startApiServer } from './api/server';
 import { startScheduler } from './bot/scheduler';
 import { initMusicManager } from './bot/music/manager';
@@ -25,7 +26,10 @@ async function main() {
   await boot({
     guildId: config.guildId,
     login: () => client.login(config.discordToken),
-    ensureGuildSettings,
+    ensureGuildSettings: async (gid: string) => {
+      await ensureGuildSettings(gid);
+      await seedOwnerPlan(gid); // owner guild = lifetime custom (created once, never overwritten)
+    },
     startApiServer: () => startApiServer({ client, prisma, config }),
     startScheduler: () =>
       startScheduler({
