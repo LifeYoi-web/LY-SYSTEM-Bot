@@ -32,14 +32,13 @@ describe('getPlan', () => {
     expect(await getPlan('g-new')).toBe('free');
   });
 
-  it('fails OPEN to the cached plan on DB error (paying guild never loses premium on a blip)', async () => {
+  it('fails OPEN to the last-known plan when the DB errors after invalidation', async () => {
     fakePrisma.subscription.findUnique.mockResolvedValueOnce({ guildId: 'g1', plan: 'premium' });
     expect(await getPlan('g1')).toBe('premium');
     invalidatePlan('g1'); // force a re-read…
     fakePrisma.subscription.findUnique.mockRejectedValueOnce(new Error('db down'));
-    // …but the stale entry was dropped by invalidate, so simulate the TTL-expiry path instead:
-    fakePrisma.subscription.findUnique.mockResolvedValueOnce({ guildId: 'g1', plan: 'premium' });
     expect(await getPlan('g1')).toBe('premium');
+    expect(fakePrisma.subscription.findUnique).toHaveBeenCalledTimes(2);
   });
 
   it('fails SAFE to free when there is no cache and the DB errors', async () => {
