@@ -15,6 +15,27 @@ export async function featureAllowed(guildId: string, key: FeatureKey): Promise<
   return hasFeature(await getPlan(guildId), key);
 }
 
+/** Slash commands that require a plan — one map entry per future premium command. */
+export const PREMIUM_COMMANDS: Record<string, { key: FeatureKey; label: string }> = Object.fromEntries(
+  ['play', 'skip', 'pause', 'resume', 'stop', 'disconnect', 'queue', 'nowplaying', 'volume', 'loop', 'shuffle', 'seek', 'lyrics'].map(
+    (name) => [name, { key: 'music' as FeatureKey, label: 'الموسيقى' }],
+  ),
+);
+
+/** Returns true when the interaction was blocked (upsell already sent). */
+export async function gatePremiumCommand(interaction: {
+  commandName: string;
+  guildId: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  reply: (payload: any) => Promise<any>;
+}): Promise<boolean> {
+  const gate = PREMIUM_COMMANDS[interaction.commandName];
+  if (!gate || !interaction.guildId) return false;
+  if (await featureAllowed(interaction.guildId, gate.key)) return false;
+  await interaction.reply(upsellReply(gate.label)).catch(() => undefined);
+  return true;
+}
+
 /** Standard Arabic upsell payload for gated slash commands / buttons. */
 export function upsellReply(featureLabel: string) {
   const url = process.env.DASHBOARD_URL || 'https://discord.com';

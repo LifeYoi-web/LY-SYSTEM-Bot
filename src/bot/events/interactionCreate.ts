@@ -37,6 +37,7 @@ import { buildSuggestionMessage } from '../suggestions';
 import { handleMusicButton } from '../music/buttons';
 import { buildApplyModal, submitApplication, decideApplication } from '../applications';
 import { buyItem, BUY_ERRORS } from '../shop';
+import { gatePremiumCommand, featureAllowed, upsellReply } from '../premium';
 
 const EPH = { flags: MessageFlags.Ephemeral } as const;
 
@@ -399,7 +400,13 @@ module.exports = {
       else if (id.startsWith('gw:')) await handleGiveawayButton(interaction).catch(() => undefined);
       else if (id.startsWith('sg:')) await handleSuggestionVote(interaction).catch(() => undefined);
       else if (id.startsWith('tv:')) await handleTempVoiceButton(interaction).catch(() => undefined);
-      else if (id.startsWith('mu:')) await handleMusicButton(interaction).catch(() => undefined);
+      else if (id.startsWith('mu:')) {
+        if (interaction.guildId && !(await featureAllowed(interaction.guildId, 'music'))) {
+          await interaction.reply(upsellReply('الموسيقى')).catch(() => undefined);
+        } else {
+          await handleMusicButton(interaction).catch(() => undefined);
+        }
+      }
       else if (id.startsWith('app:')) await handleApplicationButton(interaction).catch(() => undefined);
       else if (id.startsWith('shop:buy:')) await handleShopButton(interaction).catch(() => undefined);
       else if (id === 'rules:accept') await handleRulesAccept(interaction).catch(() => undefined);
@@ -429,6 +436,7 @@ module.exports = {
       logger.warning(`Unknown command: ${interaction.commandName}`);
       return;
     }
+    if (await gatePremiumCommand(interaction)) return;
     try {
       await command.execute(interaction);
       logger.info(`Command executed: /${interaction.commandName} by ${interaction.user.tag}`);
