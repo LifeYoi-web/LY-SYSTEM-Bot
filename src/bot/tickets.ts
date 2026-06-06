@@ -18,6 +18,7 @@ import { getTicketConfig, getTicketTypes, invalidateTicketConfig } from '../db/c
 import { getSettings } from '../db/settingsCache';
 import { logEvent } from './logging';
 import { summarizeTranscript } from '../shared/ai';
+import { featureAllowed } from './premium';
 
 const ORANGE = 0xf57c00;
 
@@ -407,9 +408,9 @@ export async function closeTicket(
     .create({ data: { guildId: guild.id, ticketId: ticket.id, number: ticket.number, html, closedBy } })
     .catch(() => null);
 
-  // AI summary — fire-and-forget, gated on ANTHROPIC_API_KEY. Never blocks channel deletion.
+  // AI summary — fire-and-forget, gated on ANTHROPIC_API_KEY + aiSummaries plan feature.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (apiKey && saved && messages.length) {
+  if (apiKey && saved && messages.length && (await featureAllowed(guild.id, 'aiSummaries'))) {
     const plain = messages.map((m) => `${m.authorTag}: ${m.content}`).join('\n');
     void summarizeTranscript(plain, apiKey).then((summary) => {
       if (summary) {

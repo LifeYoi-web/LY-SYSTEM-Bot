@@ -2,6 +2,7 @@ import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import { getLevelConfig } from '../db/leveling';
 import { applyXpGain } from './leveling';
+import { featureAllowed } from './premium';
 
 // The scheduler calls this each tick (~60s). We credit each eligible voice member XP
 // pro-rated to the elapsed time since the last sweep, so partial minutes still count
@@ -14,6 +15,7 @@ export async function sweepVoiceXp(
   guildId: string,
   now: number = Date.now(),
 ): Promise<number> {
+  if (!(await featureAllowed(guildId, 'voiceXp'))) return 0;
   const cfg = await getLevelConfig(guildId);
   const prev = lastSweep;
   lastSweep = now;

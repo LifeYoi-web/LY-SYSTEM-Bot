@@ -6,6 +6,7 @@ import { fetchYouTubeUploads } from './youtubeFeed';
 import { fetchTikTokUploads } from './tiktok';
 import { announceContent } from './announce';
 import type { ContentItem, Platform } from './types';
+import { featureAllowed } from '../premium';
 
 export const YT_INTERVAL_MS = 5 * 60_000; // YouTube RSS is free; poll every 5 min
 export const TT_INTERVAL_MS = 10 * 60_000; // TikTok costs RapidAPI quota; poll every 10 min
@@ -72,6 +73,7 @@ async function pollSource(
 
 /** Scheduler task: poll enabled creator sources and announce new uploads. */
 export async function pollCreatorContent(deps: CreatorPollDeps, now: Date = new Date()): Promise<number> {
+  if (!(await featureAllowed(deps.guildId, 'creatorAlerts'))) return 0;
   const cfg = await getCreatorAnnounceConfig(deps.guildId);
   if (!cfg.enabled || !cfg.channelId) return 0;
   let announced = 0;

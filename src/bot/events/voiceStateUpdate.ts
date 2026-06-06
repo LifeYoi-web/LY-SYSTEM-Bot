@@ -2,6 +2,7 @@ import type { VoiceState } from 'discord.js';
 import { prisma } from '../../db/prisma';
 import { getTempVoiceConfig } from '../../db/community';
 import { createTempChannel, handleTempLeave } from '../tempvoice';
+import { featureAllowed } from '../premium';
 
 module.exports = {
   name: 'voiceStateUpdate',
@@ -16,6 +17,7 @@ module.exports = {
     if (newState.channelId && newState.member) {
       const cfg = await getTempVoiceConfig(guild.id).catch(() => null);
       if (cfg?.enabled && cfg.hubChannelId === newState.channelId) {
+        if (!(await featureAllowed(guild.id, 'tempVoice'))) return;
         await createTempChannel(guild, prisma, cfg, newState.member);
       }
     }
