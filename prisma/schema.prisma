@@ -692,3 +692,15 @@ model AlertConfig {
   joinSpikeThreshold  Int     @default(20)
   lastAlertKey        String? // dedupe: "<rule>:<YYYY-MM-DD>"
 }
+
+// ---- SaaS subscriptions (freemium tiers — spec 2026-06-05) ----
+model Subscription {
+  guildId   String    @id
+  plan      String    @default("free") // free | premium | custom
+  status    String    @default("active") // active | grace | expired | left (lifecycle lands in stage B)
+  expiresAt DateTime? // null = never (free tier / owner lifetime)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([plan])
+}
