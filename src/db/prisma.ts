@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import { assertTenantScoped } from './tenant-guard';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -8,4 +9,23 @@ const pool = new Pool({
 
 const adapter = new PrismaPg(pool);
 
-export const prisma = new PrismaClient({ adapter });
+const base = new PrismaClient({ adapter });
+
+// Wrap with the tenant guard: any bulk operation on a tenant-scoped model that omits
+// a guildId filter will throw immediately rather than silently reading cross-tenant rows.
+// The cast to PrismaClient keeps the exported type stable for the ~40 importing modules —
+// the extension adds no API surface we use, only a query interceptor.
+export const prisma = base.$extends({
+  query: {
+    $allModels: {
+      async $allOperations({ model, operation, args, query }) {
+        assertTenantScoped(
+          model,
+          operation,
+          args as { where?: Record<string, unknown> },
+        );
+        return query(args);
+      },
+    },
+  },
+}) as unknown as PrismaClient;
