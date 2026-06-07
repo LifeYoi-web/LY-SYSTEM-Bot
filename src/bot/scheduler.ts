@@ -31,10 +31,13 @@ export async function liftExpiredCases(deps: ActionDeps, guildId: string): Promi
 export interface SchedulerDeps {
   client: Client;
   prisma: PrismaClient;
-  guildId: string;
   /** Optional RapidAPI creds enabling the TikTok creator-announce source. */
   rapidApiKey?: string;
   rapidApiTikTokHost?: string;
+}
+
+export interface GuildTickDeps extends SchedulerDeps {
+  guildId: string;
 }
 
 /** Next fire time for a repeating schedule, or null for a one-off. Skips past missed runs. */
@@ -48,7 +51,7 @@ export function computeNextRun(runAt: Date, repeat: string, now: Date = new Date
   return next;
 }
 
-export async function postDueScheduled(deps: SchedulerDeps, now: Date = new Date()): Promise<number> {
+export async function postDueScheduled(deps: GuildTickDeps, now: Date = new Date()): Promise<number> {
   const due = await deps.prisma.scheduledMessage.findMany({
     where: { guildId: deps.guildId, enabled: true, runAt: { lte: now } },
   });
@@ -79,7 +82,7 @@ export function createTickState(): TickState {
 }
 
 /** One scheduler pass for one tenant guild. Exported so tests can run a single tick. */
-export async function runSchedulerTick(deps: SchedulerDeps, state: TickState): Promise<void> {
+export async function runSchedulerTick(deps: GuildTickDeps, state: TickState): Promise<void> {
   // Flush buffered activity counters — strictly the tenant guild (fleet-safety).
   const tenantGuild = deps.client.guilds.cache.get(deps.guildId);
   await flushStats(deps.prisma, deps.guildId, tenantGuild?.memberCount).catch((err) =>
@@ -143,9 +146,30 @@ export async function runSchedulerTick(deps: SchedulerDeps, state: TickState): P
   }
 }
 
+/**
+ * Multi-guild sweep: run the (tenant-isolated) per-guild tick once for every
+ * guild the shared bot is currently in, each with its own TickState. One
+ * guild's failure never blocks the others. State for departed guilds is pruned.
+ */
+export async function runSchedulerSweep(deps: SchedulerDeps, states: Map<string, TickState>): Promise<void> {
+  for (const guildId of deps.client.guilds.cache.keys()) {
+    let state = states.get(guildId);
+    if (!state) {
+      state = createTickState();
+      states.set(guildId, state);
+    }
+    await runSchedulerTick({ ...deps, guildId }, state).catch((err) =>
+      logger.error(`Scheduler tick failed for guild ${guildId}: ${err}`),
+    );
+  }
+  for (const guildId of states.keys()) {
+    if (!deps.client.guilds.cache.has(guildId)) states.delete(guildId);
+  }
+}
+
 export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS.Timeout {
-  const state = createTickState();
-  const handle = setInterval(() => void runSchedulerTick(deps, state), intervalMs);
+  const states = new Map<string, TickState>();
+  const handle = setInterval(() => void runSchedulerSweep(deps, states), intervalMs);
   handle.unref?.();
   return handle;
 }

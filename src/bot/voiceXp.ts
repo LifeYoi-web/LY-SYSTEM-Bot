@@ -7,7 +7,15 @@ import { featureAllowed } from './premium';
 // The scheduler calls this each tick (~60s). We credit each eligible voice member XP
 // pro-rated to the elapsed time since the last sweep, so partial minutes still count
 // and a missed/long tick (e.g. after a restart) is skipped rather than dumping XP.
-let lastSweep = 0;
+
+// Per-guild sweep clock: each guild's elapsed window is independent (a shared
+// clock would zero out every guild after the first one in the same sweep).
+const lastSweep = new Map<string, number>();
+
+/** Test helper. */
+export function _resetVoiceXpClock(): void {
+  lastSweep.clear();
+}
 
 export async function sweepVoiceXp(
   client: Client,
@@ -17,8 +25,8 @@ export async function sweepVoiceXp(
 ): Promise<number> {
   if (!(await featureAllowed(guildId, 'voiceXp'))) return 0;
   const cfg = await getLevelConfig(guildId);
-  const prev = lastSweep;
-  lastSweep = now;
+  const prev = lastSweep.get(guildId);
+  lastSweep.set(guildId, now);
   if (!cfg.enabled || !cfg.voiceXpEnabled) return 0;
   if (!prev) return 0; // first run establishes the baseline
   const elapsedMin = (now - prev) / 60_000;
@@ -45,6 +53,3 @@ export async function sweepVoiceXp(
   return credited;
 }
 
-export function _resetVoiceSweep(): void {
-  lastSweep = 0;
-}

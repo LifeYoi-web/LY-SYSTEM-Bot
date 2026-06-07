@@ -35,7 +35,6 @@ async function main() {
       startScheduler({
         client,
         prisma,
-        guildId: config.guildId,
         rapidApiKey: config.rapidApiKey,
         rapidApiTikTokHost: config.rapidApiTikTokHost,
       }),
