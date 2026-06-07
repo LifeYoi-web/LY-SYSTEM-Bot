@@ -27,7 +27,8 @@ module.exports = {
     if (n) logger.success(`Reconciled ${n}/${client.guilds.cache.size} guild(s) into the registry`);
 
     // Owner guild keeps the eager member-cache warm (dashboard member list);
-    // other guilds warm lazily on demand.
+    // other guilds warm on first dashboard members-page visit (members route
+    // fetches when its cache looks cold) or stay cold until gateway events fill them.
     if (ownerGuildId) {
       const ownerGuild = client.guilds.cache.get(ownerGuildId);
       await ownerGuild?.members

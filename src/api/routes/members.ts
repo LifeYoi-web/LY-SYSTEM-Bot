@@ -49,12 +49,18 @@ export function createMembersRouter(deps: MembersDeps): Router {
   const router = Router();
   const { client, prisma } = deps;
 
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
     const guild = client.guilds.cache.get(guildId);
     if (!guild) {
       res.status(503).json({ error: 'guild not available' });
       return;
+    }
+    // Lazy warm for non-owner guilds (boot only warms the owner guild eagerly):
+    // a clearly-cold cache would render a near-empty member list. One fetch fills
+    // it for the session; failures fall back to whatever the cache holds.
+    if (guild.members.cache.size < (guild.memberCount ?? 0) * 0.5) {
+      await guild.members.fetch().catch(() => undefined);
     }
     const search = String(req.query.search ?? '').toLowerCase().trim();
     const filter = String(req.query.filter ?? 'all');

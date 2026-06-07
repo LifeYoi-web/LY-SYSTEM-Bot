@@ -95,6 +95,26 @@ describe('members router', () => {
     await request(app(fakeDeps())).get('/api/members/999').expect(404);
   });
 
+  it('lazy-warms a cold member cache (non-owner guild) before listing', async () => {
+    const deps = fakeDeps();
+    const guild = deps.client.guilds.cache.get('g1');
+    guild.memberCount = 100; // cache holds 3 << 50% of 100 → clearly cold
+    const fetchSpy = vi.fn().mockResolvedValue(new Map());
+    guild.members.fetch = fetchSpy;
+    await request(app(deps)).get('/api/members').expect(200);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT re-fetch when the cache is already warm', async () => {
+    const deps = fakeDeps();
+    const guild = deps.client.guilds.cache.get('g1');
+    guild.memberCount = 3; // cache.size === memberCount → warm
+    const fetchSpy = vi.fn();
+    guild.members.fetch = fetchSpy;
+    await request(app(deps)).get('/api/members').expect(200);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('503s when the guild is unavailable', async () => {
     await request(app(fakeDeps(false))).get('/api/members').expect(503);
   });
