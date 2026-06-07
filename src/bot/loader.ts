@@ -43,7 +43,13 @@ export async function registerCommands(
     await rest.put(Routes.applicationCommands(clientId), { body });
     if (opts?.clearGuildId) {
       // Clear the stale guild-scoped set from the single-guild era so commands don't show twice.
-      await rest.put(Routes.applicationGuildCommands(clientId, opts.clearGuildId), { body: [] }).catch(() => undefined);
+      // Order is deliberate (global put FIRST): global updates propagate near-instantly on
+      // current Discord, so clearing after keeps the worst case a brief duplicate listing —
+      // never a commands-gone window. A failed clear leaves harmless duplicates, logged below.
+      await rest
+        .put(Routes.applicationGuildCommands(clientId, opts.clearGuildId), { body: [] })
+        .then(() => logger.info(`Cleared stale guild-scoped command set for ${opts.clearGuildId}`))
+        .catch((err) => logger.warning(`Stale guild-command clear failed for ${opts.clearGuildId} (duplicates may show until retried): ${err}`));
     }
     logger.success(`Registered ${body.length} global command(s).`);
   }

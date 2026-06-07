@@ -45,4 +45,16 @@ describe('registerCommands', () => {
     expect(putSpy).toHaveBeenCalledTimes(1);
     expect(putSpy.mock.calls[0][0]).toBe('/applications/app1/commands');
   });
+
+  it('a failed stale-guild clear is swallowed — registration still resolves', async () => {
+    putSpy.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('429'));
+    await expect(registerCommands(commands(), 'tok', 'app1', undefined, { clearGuildId: 'g1' })).resolves.toBeUndefined();
+    expect(putSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed GLOBAL put rejects (boot fire-and-forget catch logs it)', async () => {
+    putSpy.mockRejectedValueOnce(new Error('500'));
+    await expect(registerCommands(commands(), 'tok', 'app1', undefined, { clearGuildId: 'g1' })).rejects.toThrow('500');
+    expect(putSpy).toHaveBeenCalledTimes(1); // the clear is never attempted after a failed global put
+  });
 });
