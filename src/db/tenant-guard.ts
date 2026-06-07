@@ -31,6 +31,10 @@ export const TENANT_EXEMPT_MODELS: ReadonlySet<string> = new Set([
   'ApplicationQuestion', // child-relation model — no guildId column; keyed by formId
 ]);
 
+// NOT recognized (deliberately — no call site uses them today): OR-composed filters
+// (`OR: [{ guildId }, …]` is not a tenant guarantee) and relation-nested guildId
+// (`where: { form: { guildId } }`). If you hit a confusing fail-closed throw on such
+// a query, restructure it to carry a top-level guildId (preferred) or extend this.
 function hasGuildFilter(where: Record<string, unknown> | undefined): boolean {
   if (!where) return false;
   if (typeof where.guildId === 'string') return true;
