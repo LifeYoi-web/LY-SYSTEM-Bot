@@ -109,8 +109,14 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
   });
 
   router.delete('/forms/:id', async (req, res) => {
-    await prisma.applicationSubmission.deleteMany({ where: { formId: req.params.id } }).catch(() => undefined);
-    await prisma.applicationForm.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    // Ownership check first — a foreign guild's form id must 404, not delete.
+    const existing = await prisma.applicationForm.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
+    // Submissions have no DB cascade (plain formId column) — delete them explicitly,
+    // tenant-scoped. Questions cascade via the relation's onDelete.
+    await prisma.applicationSubmission.deleteMany({ where: { guildId, formId: existing.id } }).catch(() => undefined);
+    await prisma.applicationForm.delete({ where: { id: existing.id } }).catch(() => undefined);
     res.json({ ok: true });
   });
 
