@@ -46,4 +46,20 @@ describe('postOnboarding', () => {
     const { guild } = fakeGuild({ system: false, sendable: false });
     expect(await postOnboarding(guild, 'https://dash.example')).toBe(false);
   });
+
+  it('skips a NON-sendable system channel and posts to a sendable scan channel instead', async () => {
+    const systemSend = vi.fn().mockResolvedValue({});
+    const scanSend = vi.fn().mockResolvedValue({});
+    const lockedSystem = { isTextBased: () => true, permissionsFor: () => ({ has: () => false }), send: systemSend };
+    const openChannel = { isTextBased: () => true, permissionsFor: () => ({ has: () => true }), send: scanSend };
+    const guild = {
+      name: 'سيرفر',
+      members: { me: { id: 'bot' } },
+      systemChannel: lockedSystem,
+      channels: { cache: new Map([['c1', openChannel]]) },
+    } as any;
+    expect(await postOnboarding(guild, 'https://dash.example')).toBe(true);
+    expect(systemSend).not.toHaveBeenCalled();
+    expect(scanSend).toHaveBeenCalledTimes(1);
+  });
 });
