@@ -11,6 +11,7 @@ import {
   sweepRaids,
   postWeeklyDigest,
   runChurnAlerts,
+  pruneOldTranscripts,
 } from './scheduler-tasks';
 import { sweepVoiceXp } from './voiceXp';
 import { pollCreatorContent } from './creator/poll';
@@ -70,10 +71,11 @@ export interface TickState {
   lastStatRefresh: number;
   lastBirthdayKey: string;
   lastTrendCheck: number;
+  lastTranscriptPruneKey: string;
 }
 
 export function createTickState(): TickState {
-  return { lastStatRefresh: 0, lastBirthdayKey: '', lastTrendCheck: 0 };
+  return { lastStatRefresh: 0, lastBirthdayKey: '', lastTrendCheck: 0, lastTranscriptPruneKey: '' };
 }
 
 /** One scheduler pass for one tenant guild. Exported so tests can run a single tick. */
@@ -123,6 +125,12 @@ export async function runSchedulerTick(deps: SchedulerDeps, state: TickState): P
   if (dayKey !== state.lastBirthdayKey) {
     state.lastBirthdayKey = dayKey;
     await announceBirthdays(deps).catch((err) => logger.error(`Birthday error: ${err}`));
+  }
+
+  // Transcript retention (free tier): once per UTC day.
+  if (dayKey !== state.lastTranscriptPruneKey) {
+    state.lastTranscriptPruneKey = dayKey;
+    await pruneOldTranscripts(deps).catch((err) => logger.error(`Transcript prune error: ${err}`));
   }
 
   const guild = deps.client.guilds.cache.get(deps.guildId);
