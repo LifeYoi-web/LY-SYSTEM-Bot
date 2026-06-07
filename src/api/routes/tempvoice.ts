@@ -3,7 +3,7 @@ import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getTempVoiceConfig, updateTempVoiceConfig } from '../../db/community';
-import { optStr } from '../util';
+import { optStr, channelInGuild } from '../util';
 import { tenantGuildId } from '../middleware/tenant';
 
 export interface TempVoiceDeps {
@@ -16,6 +16,7 @@ const MAX_TEMPLATE = 80;
 
 export function createTempVoiceRouter(deps: TempVoiceDeps): Router {
   const router = Router();
+  const { client } = deps;
 
   router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
@@ -27,7 +28,11 @@ export function createTempVoiceRouter(deps: TempVoiceDeps): Router {
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
-    if (b.hubChannelId !== undefined) data.hubChannelId = optStr(b.hubChannelId);
+    if (b.hubChannelId !== undefined) {
+      const v = optStr(b.hubChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.hubChannelId = v;
+    }
     if (b.categoryId !== undefined) data.categoryId = optStr(b.categoryId);
     if (b.nameTemplate !== undefined) {
       const s = optStr(b.nameTemplate);

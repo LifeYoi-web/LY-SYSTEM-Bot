@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
-import type { Client, TextChannel } from 'discord.js';
+import type { Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { applyPanelEmbed, applyButtonRow } from '../../bot/applications';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { tenantTextChannel } from '../util';
 
 export interface ApplicationsDeps {
   client: Client;
@@ -126,8 +127,8 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     const form = await prisma.applicationForm.findUnique({ where: { id: req.params.id } });
     if (!form || form.guildId !== guildId) return res.status(404).json({ error: 'not found' });
-    const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel?.isTextBased?.()) return res.status(400).json({ error: 'invalid channel' });
+    const channel = tenantTextChannel(client, guildId, channelId);
+    if (!channel) return res.status(400).json({ error: 'invalid channel' });
     const msg = await channel
       .send({ embeds: [applyPanelEmbed(form.name, form.description)], components: [applyButtonRow(form.id)] })
       .catch(() => null);

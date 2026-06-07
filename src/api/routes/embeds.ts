@@ -5,6 +5,7 @@ import type { AppConfig } from '../../shared/config';
 import { postOrEditEmbed, isValidEmbed, type EmbedPayload } from '../../bot/embeds';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { tenantTextChannel } from '../util';
 
 export interface EmbedsDeps {
   client: Client;
@@ -75,6 +76,7 @@ export function createEmbedsRouter(deps: EmbedsDeps): Router {
     if (!embed || embed.guildId !== guildId) return res.status(404).json({ error: 'not found' });
     const target = channelId || embed.postedChannelId;
     if (!target) return res.status(400).json({ error: 'channelId required' });
+    if (!tenantTextChannel(client, guildId, target)) return res.status(400).json({ error: 'invalid channel' });
     // Re-edit the existing message only when posting to the same channel.
     const reuseId = target === embed.postedChannelId ? embed.postedMessageId : null;
     const messageId = await postOrEditEmbed(client, target, reuseId, embed.payload as EmbedPayload);

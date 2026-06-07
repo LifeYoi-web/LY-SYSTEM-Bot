@@ -52,7 +52,10 @@ function app() {
   const a = express();
   a.use(express.json());
   a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
-  a.use('/api/tempvoice', createTempVoiceRouter({ client: {} as any, prisma: {} as any, config: { guildId: 'g1' } }));
+  // Channel cache must map any id to a g1 channel so hubChannelId validation passes.
+  const fakeChannel = { guildId: 'g1' };
+  const fakeClient = { channels: { cache: { get: () => fakeChannel } } };
+  a.use('/api/tempvoice', createTempVoiceRouter({ client: fakeClient as any, prisma: {} as any, config: { guildId: 'g1' } }));
   return a;
 }
 

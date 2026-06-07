@@ -5,12 +5,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
   type Client,
-  type TextChannel,
 } from 'discord.js';
 import type { PrismaClient, Prisma } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { tenantTextChannel } from '../util';
 
 export interface RolePanelsDeps {
   client: Client;
@@ -124,8 +124,8 @@ export function createRolePanelsRouter(deps: RolePanelsDeps): Router {
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     const panel = await prisma.rolePanel.findUnique({ where: { id: req.params.id } });
     if (!panel || panel.guildId !== guildId) return res.status(404).json({ error: 'panel not found' });
-    const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel?.isTextBased?.()) return res.status(400).json({ error: 'invalid channel' });
+    const channel = tenantTextChannel(client, guildId, channelId);
+    if (!channel) return res.status(400).json({ error: 'invalid channel' });
     try {
       const msg = await channel.send(
         buildPanelMessage({ title: panel.title, description: panel.description, roles: panel.roles as unknown as PanelRole[] }),

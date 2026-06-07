@@ -160,7 +160,9 @@ function app() {
   const a = express();
   a.use(express.json());
   a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
-  a.use('/api/creatorannounce', createCreatorAnnounceRouter({ client: {} as never, prisma: {} as never, config: { guildId: 'g1' } }));
+  // Channel cache: any id maps to a g1 channel so channelId validation passes.
+  const fakeClient = { channels: { cache: { get: () => ({ guildId: 'g1' }) } } };
+  a.use('/api/creatorannounce', createCreatorAnnounceRouter({ client: fakeClient as never, prisma: {} as never, config: { guildId: 'g1' } }));
   return a;
 }
 

@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import type { Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { getAlertConfig, updateAlertConfig } from '../../db/community';
 import { tenantGuildId } from '../middleware/tenant';
+import { channelInGuild } from '../util';
 
 export interface AlertsDeps {
+  client: Client;
   config: Pick<AppConfig, 'guildId'>;
 }
 
@@ -14,6 +17,7 @@ const optStr = (v: unknown): string | null => {
 
 export function createAlertsRouter(deps: AlertsDeps): Router {
   const router = Router();
+  const { client } = deps;
 
   router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
@@ -39,7 +43,11 @@ export function createAlertsRouter(deps: AlertsDeps): Router {
         data[k] = n;
       }
     }
-    if (b.alertChannelId !== undefined) data.alertChannelId = optStr(b.alertChannelId);
+    if (b.alertChannelId !== undefined) {
+      const v = optStr(b.alertChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.alertChannelId = v;
+    }
     res.json(await updateAlertConfig(guildId, data));
   });
 

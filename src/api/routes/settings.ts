@@ -1,12 +1,15 @@
 import { Router } from 'express';
+import type { Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { getSettings, updateSettings, type EditableSettings } from '../../db/settingsCache';
 import { WELCOME_CARD_STYLE_KEYS } from '../../bot/welcomeCard';
 import { getPlan } from '../../db/subscriptions';
 import { hasFeature } from '../../shared/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { channelInGuild } from '../util';
 
 export interface SettingsDeps {
+  client: Client;
   config: Pick<AppConfig, 'guildId'>;
 }
 
@@ -21,6 +24,7 @@ function optStr(v: unknown): string | null {
 
 export function createSettingsRouter(deps: SettingsDeps): Router {
   const router = Router();
+  const { client } = deps;
 
   router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
@@ -38,8 +42,16 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
       }
       data.language = String(b.language);
     }
-    if (b.logChannelId !== undefined) data.logChannelId = optStr(b.logChannelId);
-    if (b.welcomeChannelId !== undefined) data.welcomeChannelId = optStr(b.welcomeChannelId);
+    if (b.logChannelId !== undefined) {
+      const v = optStr(b.logChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.logChannelId = v;
+    }
+    if (b.welcomeChannelId !== undefined) {
+      const v = optStr(b.welcomeChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.welcomeChannelId = v;
+    }
     if (b.autoRoleId !== undefined) data.autoRoleId = optStr(b.autoRoleId);
 
     // Account-age / alt gate on join.

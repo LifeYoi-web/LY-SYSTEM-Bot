@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { channelInGuild } from '../util';
 
 export interface ScheduledDeps {
+  client: Client;
   prisma: PrismaClient;
   config: Pick<AppConfig, 'guildId'>;
 }
@@ -13,7 +16,7 @@ const REPEATS = ['none', 'daily', 'weekly'];
 
 export function createScheduledRouter(deps: ScheduledDeps): Router {
   const router = Router();
-  const { prisma } = deps;
+  const { client, prisma } = deps;
 
   router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
@@ -32,6 +35,7 @@ export function createScheduledRouter(deps: ScheduledDeps): Router {
     if (!content) return res.status(400).json({ error: 'content required' });
     if (Number.isNaN(runAt.getTime())) return res.status(400).json({ error: 'invalid runAt' });
     if (!REPEATS.includes(repeat)) return res.status(400).json({ error: 'invalid repeat' });
+    if (!channelInGuild(client, guildId, channelId)) return res.status(400).json({ error: 'invalid channel' });
     const limit = await planLimit(guildId, 'scheduledMessages');
     if ((await prisma.scheduledMessage.count({ where: { guildId } })) >= limit) {
       return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
@@ -46,7 +50,11 @@ export function createScheduledRouter(deps: ScheduledDeps): Router {
     if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
-    if (b.channelId !== undefined) data.channelId = String(b.channelId);
+    if (b.channelId !== undefined) {
+      const v = String(b.channelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.channelId = v;
+    }
     if (b.content !== undefined) data.content = String(b.content).trim().slice(0, 2000);
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
     if (b.repeat !== undefined) {

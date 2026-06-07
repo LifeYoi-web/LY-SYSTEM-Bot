@@ -5,7 +5,7 @@ import type { AppConfig } from '../../shared/config';
 import { getCreatorAnnounceConfig, updateCreatorAnnounceConfig } from '../../db/community';
 import { resolveYouTubeChannelId } from '../../bot/creator/youtubeFeed';
 import { announceContent } from '../../bot/creator/announce';
-import { optStr } from '../util';
+import { optStr, channelInGuild } from '../util';
 import { tenantGuildId } from '../middleware/tenant';
 
 export interface CreatorAnnounceDeps {
@@ -19,6 +19,7 @@ const PING_MODES = ['everyone', 'here', 'role', 'none'];
 
 export function createCreatorAnnounceRouter(deps: CreatorAnnounceDeps): Router {
   const router = Router();
+  const { client } = deps;
 
   router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
@@ -32,7 +33,11 @@ export function createCreatorAnnounceRouter(deps: CreatorAnnounceDeps): Router {
     const data: Record<string, unknown> = {};
 
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
-    if (b.channelId !== undefined) data.channelId = optStr(b.channelId);
+    if (b.channelId !== undefined) {
+      const v = optStr(b.channelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.channelId = v;
+    }
     if (b.pingMode !== undefined) {
       const s = String(b.pingMode);
       if (!PING_MODES.includes(s)) return res.status(400).json({ error: 'invalid pingMode' });

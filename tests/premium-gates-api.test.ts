@@ -44,11 +44,14 @@ const levelCfg = {
   voiceXpEnabled: false,
 };
 
+// Any channel id maps to a g1 channel so validation passes in unit tests.
+const fakeClient = { channels: { cache: { get: () => ({ guildId: 'g1' }) } } };
+
 function settingsApp() {
   const a = express();
   a.use(express.json());
   a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
-  a.use('/api/settings', createSettingsRouter({ config: { guildId: 'g1' } } as any));
+  a.use('/api/settings', createSettingsRouter({ client: fakeClient as any, config: { guildId: 'g1' } }));
   return a;
 }
 
@@ -57,6 +60,7 @@ function levelingApp() {
   a.use(express.json());
   a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use('/api/leveling', createLevelingRouter({
+    client: fakeClient as any,
     config: { guildId: 'g1' },
     prisma: {
       levelRoleReward: { findMany: vi.fn().mockResolvedValue([]) },

@@ -32,7 +32,7 @@ vi.mock('../src/db/community', () => ({
 import { createTicketsRouter } from '../src/api/routes/tickets';
 
 function deps() {
-  const channel = { isTextBased: () => true, send: vi.fn().mockResolvedValue({ id: 'm1' }) };
+  const channel = { guildId: 'g1', isTextBased: () => true, send: vi.fn().mockResolvedValue({ id: 'm1' }) };
   return {
     config: { guildId: 'g1' },
     client: {

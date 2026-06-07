@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import type { Client, TextChannel } from 'discord.js';
+import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { parseDuration } from '../../shared/duration';
 import { buildGiveawayMessage, endGiveaway, rerollGiveaway } from '../../bot/giveaways';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { tenantTextChannel } from '../util';
 
 export interface GiveawaysDeps {
   client: Client;
@@ -42,8 +43,8 @@ export function createGiveawaysRouter(deps: GiveawaysDeps): Router {
       return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
     }
 
-    const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel?.isTextBased?.()) return res.status(400).json({ error: 'invalid channel' });
+    const channel = tenantTextChannel(client, guildId, channelId);
+    if (!channel) return res.status(400).json({ error: 'invalid channel' });
 
     let giveaway = await prisma.giveaway.create({
       data: { guildId, channelId, prize, winnerCount, endsAt: new Date(Date.now() + ms) },

@@ -15,11 +15,17 @@ import { _resetPlans } from '../src/db/subscriptions';
 
 const row = { guildId: 'g1', logChannelId: null, staffRoleIds: [] as string[] };
 
+/** A fake client whose cache recognises any channel id as belonging to g1. */
+function fakeClient() {
+  const ch = { guildId: 'g1', isTextBased: () => true };
+  return { channels: { cache: { get: () => ch } } };
+}
+
 function app() {
   const a = express();
   a.use(express.json());
   a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
-  a.use('/api/settings', createSettingsRouter({ config: { guildId: 'g1' } } as any));
+  a.use('/api/settings', createSettingsRouter({ client: fakeClient() as any, config: { guildId: 'g1' } }));
   return a;
 }
 

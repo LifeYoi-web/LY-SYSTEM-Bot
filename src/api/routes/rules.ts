@@ -5,12 +5,11 @@ import {
   ButtonBuilder,
   ButtonStyle,
   type Client,
-  type TextChannel,
 } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getSettings, updateSettings } from '../../db/settingsCache';
-import { optStr } from '../util';
+import { optStr, tenantTextChannel, channelInGuild } from '../util';
 import { tenantGuildId } from '../middleware/tenant';
 
 export interface RulesDeps {
@@ -62,7 +61,11 @@ export function createRulesRouter(deps: RulesDeps): Router {
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.rulesEnabled !== undefined) data.rulesEnabled = Boolean(b.rulesEnabled);
-    if (b.rulesChannelId !== undefined) data.rulesChannelId = optStr(b.rulesChannelId);
+    if (b.rulesChannelId !== undefined) {
+      const v = optStr(b.rulesChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.rulesChannelId = v;
+    }
     if (b.rulesRoleId !== undefined) data.rulesRoleId = optStr(b.rulesRoleId);
     if (b.rulesButtonLabel !== undefined) {
       const v = optStr(b.rulesButtonLabel);
@@ -85,8 +88,8 @@ export function createRulesRouter(deps: RulesDeps): Router {
     const s = await getSettings(guildId);
     if (!s.rulesMessage) return res.status(400).json({ error: 'rulesMessage not set' });
     if (!s.rulesRoleId) return res.status(400).json({ error: 'rulesRoleId not set' });
-    const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel?.isTextBased?.()) return res.status(400).json({ error: 'invalid channel' });
+    const channel = tenantTextChannel(client, guildId, channelId);
+    if (!channel) return res.status(400).json({ error: 'invalid channel' });
     try {
       await channel.send(buildRulesPanel(s.rulesMessage, s.rulesButtonLabel));
       res.json({ ok: true });

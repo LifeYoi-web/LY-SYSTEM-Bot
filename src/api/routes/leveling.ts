@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getLevelConfig, updateLevelConfig, type EditableLevelConfig } from '../../db/leveling';
@@ -6,8 +7,10 @@ import { progressInLevel } from '../../shared/leveling';
 import { getPlan } from '../../db/subscriptions';
 import { hasFeature } from '../../shared/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { channelInGuild } from '../util';
 
 export interface LevelingDeps {
+  client: Client;
   prisma: PrismaClient;
   config: Pick<AppConfig, 'guildId'>;
 }
@@ -19,7 +22,7 @@ const optStr = (v: unknown): string | null => {
 
 export function createLevelingRouter(deps: LevelingDeps): Router {
   const router = Router();
-  const { prisma } = deps;
+  const { client, prisma } = deps;
 
   router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
@@ -56,7 +59,11 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
       if (!Array.isArray(b.ignoredVoiceChannelIds)) return res.status(400).json({ error: 'ignoredVoiceChannelIds must be an array' });
       data.ignoredVoiceChannelIds = (b.ignoredVoiceChannelIds as unknown[]).map(String);
     }
-    if (b.levelUpChannelId !== undefined) data.levelUpChannelId = optStr(b.levelUpChannelId);
+    if (b.levelUpChannelId !== undefined) {
+      const v = optStr(b.levelUpChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.levelUpChannelId = v;
+    }
     if (b.levelUpMessage !== undefined) {
       const s = optStr(b.levelUpMessage);
       if (s && s.length > 500) return res.status(400).json({ error: 'levelUpMessage too long' });

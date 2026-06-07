@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Client, TextChannel } from 'discord.js';
+import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import {
@@ -9,7 +9,7 @@ import {
   invalidateTicketTypes,
 } from '../../db/community';
 import { buildTicketPanel, closeTicket, reopenTicket } from '../../bot/tickets';
-import { optStr } from '../util';
+import { optStr, tenantTextChannel, channelInGuild } from '../util';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
 
@@ -53,7 +53,11 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
     if (b.categoryId !== undefined) data.categoryId = optStr(b.categoryId);
     if (b.supportRoleId !== undefined) data.supportRoleId = optStr(b.supportRoleId);
-    if (b.transcriptChannelId !== undefined) data.transcriptChannelId = optStr(b.transcriptChannelId);
+    if (b.transcriptChannelId !== undefined) {
+      const v = optStr(b.transcriptChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.transcriptChannelId = v;
+    }
     if (b.dmOnOpen !== undefined) data.dmOnOpen = Boolean(b.dmOnOpen);
     if (b.dmOnClose !== undefined) data.dmOnClose = Boolean(b.dmOnClose);
     if (b.openMessage !== undefined) {
@@ -139,8 +143,8 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
     const channelId = String((req.body ?? {}).channelId ?? '');
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     const [cfg, types] = await Promise.all([getTicketConfig(guildId), getTicketTypes(guildId)]);
-    const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel?.isTextBased?.()) return res.status(400).json({ error: 'invalid channel' });
+    const channel = tenantTextChannel(client, guildId, channelId);
+    if (!channel) return res.status(400).json({ error: 'invalid channel' });
     try {
       await channel.send(buildTicketPanel(cfg, types));
       res.json({ ok: true });

@@ -120,7 +120,7 @@ export function createApp(deps: ApiDeps): Express {
     rateLimit({ windowMs: 60_000, max: 30 }),
     createModerationRouter(deps),
   );
-  app.use('/api/settings', requireStaff(), tenant, createSettingsRouter({ config: deps.config }));
+  app.use('/api/settings', requireStaff(), tenant, createSettingsRouter({ client: deps.client, config: deps.config }));
   app.use('/api/automod', requireStaff(), tenant, createAutoModRouter({ config: deps.config }));
   app.use('/api/leveling', requireStaff(), tenant, createLevelingRouter(deps));
   app.use('/api/rolepanels', requireStaff(), tenant, createRolePanelsRouter(deps));

@@ -1,6 +1,8 @@
 import { Router } from 'express';
-import { EmbedBuilder, type Client, type TextChannel } from 'discord.js';
+import { EmbedBuilder, type Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
+import { tenantTextChannel } from '../util';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface AnnounceDeps {
   client: Client;
@@ -20,6 +22,7 @@ export function createAnnounceRouter(deps: AnnounceDeps): Router {
   const { client } = deps;
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as { channelId?: unknown; content?: unknown; embed?: EmbedInput };
     const channelId = String(b.channelId ?? '');
     const content = b.content ? String(b.content).slice(0, 2000) : '';
@@ -28,8 +31,8 @@ export function createAnnounceRouter(deps: AnnounceDeps): Router {
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     if (!content && !hasEmbed) return res.status(400).json({ error: 'content or embed required' });
 
-    const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel?.isTextBased?.()) return res.status(400).json({ error: 'invalid channel' });
+    const channel = tenantTextChannel(client, guildId, channelId);
+    if (!channel) return res.status(400).json({ error: 'invalid channel' });
 
     const payload: Record<string, unknown> = { allowedMentions: { parse: ['users', 'roles'] } };
     if (content) payload.content = content;

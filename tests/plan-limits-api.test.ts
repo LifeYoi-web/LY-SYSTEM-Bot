@@ -101,7 +101,7 @@ describe('tags create-limit gate (free plan cap = 10)', () => {
 // ── GIVEAWAYS ─────────────────────────────────────────────────────────────────
 
 function makeGiveawaysDeps(activeCount: number) {
-  const channel = { isTextBased: () => true, send: vi.fn().mockResolvedValue({ id: 'm1' }) };
+  const channel = { guildId: 'g1', isTextBased: () => true, send: vi.fn().mockResolvedValue({ id: 'm1' }) };
   return {
     config: { guildId: 'g1' },
     client: { channels: { cache: { get: vi.fn().mockReturnValue(channel) } } },

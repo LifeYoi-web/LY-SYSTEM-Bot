@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
+import { channelInGuild } from '../util';
 
 export interface StatCountersDeps {
+  client: Client;
   prisma: PrismaClient;
   config: Pick<AppConfig, 'guildId'>;
 }
@@ -13,7 +16,7 @@ const TYPES = ['members', 'humans', 'bots', 'roles', 'channels', 'boosts'];
 
 export function createStatCountersRouter(deps: StatCountersDeps): Router {
   const router = Router();
-  const { prisma } = deps;
+  const { client, prisma } = deps;
 
   router.get('/', async (req, res) => {
     const guildId = tenantGuildId(req);
@@ -29,6 +32,7 @@ export function createStatCountersRouter(deps: StatCountersDeps): Router {
     const template = String(b.template ?? '{name}: {count}').slice(0, 100);
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     if (!TYPES.includes(type)) return res.status(400).json({ error: `type must be one of ${TYPES.join(', ')}` });
+    if (!channelInGuild(client, guildId, channelId)) return res.status(400).json({ error: 'invalid channel' });
     const limit = await planLimit(guildId, 'statCounters');
     if ((await prisma.statCounter.count({ where: { guildId } })) >= limit) {
       return res.status(403).json({ error: 'limit reached', upgrade: true, limit });

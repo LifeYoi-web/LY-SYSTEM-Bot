@@ -12,8 +12,11 @@ vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
 import { createScheduledRouter } from '../src/api/routes/scheduled';
 
 function deps() {
+  // Channel cache: any id maps to a g1 channel so channelInGuild validation passes.
+  const fakeChannel = { guildId: 'g1' };
   return {
     config: { guildId: 'g1' },
+    client: { channels: { cache: { get: () => fakeChannel } } },
     prisma: {
       scheduledMessage: {
         findMany: vi.fn().mockResolvedValue([]),

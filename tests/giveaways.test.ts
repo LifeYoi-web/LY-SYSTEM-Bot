@@ -12,7 +12,7 @@ vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
 import { createGiveawaysRouter } from '../src/api/routes/giveaways';
 
 function deps() {
-  const channel = { isTextBased: () => true, send: vi.fn().mockResolvedValue({ id: 'm1' }) };
+  const channel = { guildId: 'g1', isTextBased: () => true, send: vi.fn().mockResolvedValue({ id: 'm1' }) };
   return {
     config: { guildId: 'g1' },
     client: { channels: { cache: { get: () => channel } } },
