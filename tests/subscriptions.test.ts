@@ -5,18 +5,20 @@ const { fakePrisma } = vi.hoisted(() => {
     subscription: {
       findUnique: vi.fn(),
       upsert: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   };
   return { fakePrisma };
 });
 vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
 
-import { getPlan, getConfirmedPlan, setPlan, seedOwnerPlan, invalidatePlan, _resetPlans } from '../src/db/subscriptions';
+import { getPlan, getConfirmedPlan, setPlan, seedOwnerPlan, invalidatePlan, _resetPlans, ensureSubscription, markGuildLeft } from '../src/db/subscriptions';
 
 beforeEach(() => {
   _resetPlans();
   fakePrisma.subscription.findUnique.mockReset();
   fakePrisma.subscription.upsert.mockClear();
+  fakePrisma.subscription.updateMany.mockClear();
 });
 
 describe('getPlan', () => {
@@ -92,6 +94,37 @@ describe('setPlan / seedOwnerPlan', () => {
       where: { guildId: 'g-owner' },
       update: {},
       create: { guildId: 'g-owner', plan: 'custom' },
+    });
+  });
+});
+
+describe('ensureSubscription / markGuildLeft (multi-guild lifecycle)', () => {
+  it('ensureSubscription creates a free row when missing and never touches plan on rejoin', async () => {
+    await ensureSubscription('g-new');
+    expect(fakePrisma.subscription.updateMany).toHaveBeenCalledWith({
+      where: { guildId: 'g-new', status: 'left' },
+      data: { status: 'active' },
+    });
+    expect(fakePrisma.subscription.upsert).toHaveBeenCalledWith({
+      where: { guildId: 'g-new' },
+      update: {},
+      create: { guildId: 'g-new', plan: 'free' },
+    });
+  });
+
+  it('ensureSubscription invalidates the plan cache (rejoin sees fresh state)', async () => {
+    fakePrisma.subscription.findUnique.mockResolvedValue({ plan: 'premium' });
+    expect(await getPlan('g-back')).toBe('premium');
+    fakePrisma.subscription.findUnique.mockResolvedValue(null);
+    await ensureSubscription('g-back');
+    expect(await getPlan('g-back')).toBe('free'); // cache invalidated → re-read
+  });
+
+  it('markGuildLeft sets status left without touching plan, and invalidates the cache', async () => {
+    await markGuildLeft('g-gone');
+    expect(fakePrisma.subscription.updateMany).toHaveBeenCalledWith({
+      where: { guildId: 'g-gone' },
+      data: { status: 'left' },
     });
   });
 });

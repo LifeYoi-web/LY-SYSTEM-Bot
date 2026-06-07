@@ -76,3 +76,22 @@ export function _resetPlans(): void {
   cache.clear();
   lastKnown.clear();
 }
+
+/**
+ * guildCreate / ready reconciliation: every guild the shared bot is in gets a
+ * Subscription row. Creates 'free' when missing; a re-join flips a previous
+ * 'left' back to 'active'. NEVER touches plan or any other status (stage-ب
+ * lifecycle owns grace/expired) — a premium guild that re-invites the bot
+ * keeps premium.
+ */
+export async function ensureSubscription(guildId: string): Promise<void> {
+  await prisma.subscription.updateMany({ where: { guildId, status: 'left' }, data: { status: 'active' } });
+  await prisma.subscription.upsert({ where: { guildId }, update: {}, create: { guildId, plan: 'free' } });
+  invalidatePlan(guildId);
+}
+
+/** guildDelete: mark the subscription left (data retained — cleanup is a later stage). */
+export async function markGuildLeft(guildId: string): Promise<void> {
+  await prisma.subscription.updateMany({ where: { guildId }, data: { status: 'left' } });
+  invalidatePlan(guildId);
+}
