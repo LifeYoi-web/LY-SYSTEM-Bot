@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getTempVoiceConfig, updateTempVoiceConfig } from '../../db/community';
 import { optStr } from '../util';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface TempVoiceDeps {
   client: Client;
@@ -15,14 +16,14 @@ const MAX_TEMPLATE = 80;
 
 export function createTempVoiceRouter(deps: TempVoiceDeps): Router {
   const router = Router();
-  const { config } = deps;
-  const guildId = config.guildId;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     res.json({ config: await getTempVoiceConfig(guildId) });
   });
 
   router.put('/config', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);

@@ -36,6 +36,7 @@ function app(deps: any) {
     (req as any).session = { user: { id: 'mod1', authorized: true } };
     next();
   });
+  a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use('/api/moderation', createModerationRouter(deps));
   return a;
 }

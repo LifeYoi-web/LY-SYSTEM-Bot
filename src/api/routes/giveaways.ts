@@ -5,6 +5,7 @@ import type { AppConfig } from '../../shared/config';
 import { parseDuration } from '../../shared/duration';
 import { buildGiveawayMessage, endGiveaway, rerollGiveaway } from '../../bot/giveaways';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface GiveawaysDeps {
   client: Client;
@@ -14,15 +15,16 @@ export interface GiveawaysDeps {
 
 export function createGiveawaysRouter(deps: GiveawaysDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
-  const guildId = config.guildId;
+  const { client, prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const giveaways = await prisma.giveaway.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' }, take: 50 });
     res.json({ giveaways });
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const channelId = String(b.channelId ?? '');
     const prize = String(b.prize ?? '').trim().slice(0, 256);
@@ -57,6 +59,7 @@ export function createGiveawaysRouter(deps: GiveawaysDeps): Router {
   });
 
   router.post('/:id/end', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const g = await prisma.giveaway.findUnique({ where: { id: req.params.id } });
     if (!g || g.guildId !== guildId) return res.status(404).json({ error: 'giveaway not found' });
     if (g.ended) return res.status(400).json({ error: 'already ended' });
@@ -65,6 +68,7 @@ export function createGiveawaysRouter(deps: GiveawaysDeps): Router {
   });
 
   router.post('/:id/reroll', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const g = await prisma.giveaway.findUnique({ where: { id: req.params.id } });
     if (!g || g.guildId !== guildId) return res.status(404).json({ error: 'giveaway not found' });
     if (!g.ended) return res.status(400).json({ error: 'giveaway has not ended yet' });

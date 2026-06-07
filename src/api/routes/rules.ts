@@ -11,6 +11,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getSettings, updateSettings } from '../../db/settingsCache';
 import { optStr } from '../util';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface RulesDeps {
   client: Client;
@@ -49,14 +50,15 @@ function pickRules(s: { rulesEnabled: boolean; rulesChannelId: string | null; ru
 
 export function createRulesRouter(deps: RulesDeps): Router {
   const router = Router();
-  const { client, config } = deps;
-  const guildId = config.guildId;
+  const { client } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     res.json(pickRules(await getSettings(guildId)));
   });
 
   router.put('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.rulesEnabled !== undefined) data.rulesEnabled = Boolean(b.rulesEnabled);
@@ -77,6 +79,7 @@ export function createRulesRouter(deps: RulesDeps): Router {
   });
 
   router.post('/post', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const channelId = String((req.body ?? {}).channelId ?? '');
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     const s = await getSettings(guildId);

@@ -3,6 +3,7 @@ import { PermissionFlagsBits, type Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getSettings } from '../../db/settingsCache';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface StaffReportDeps {
   client: Client;
@@ -21,10 +22,10 @@ interface Row {
 
 export function createStaffReportRouter(deps: StaffReportDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
-  const guildId = config.guildId;
+  const { client, prisma } = deps;
 
   router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
     const since = new Date(Date.now() - days * 86_400_000);
 

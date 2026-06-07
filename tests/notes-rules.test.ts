@@ -79,6 +79,7 @@ function rulesApp(channelOk = true) {
   const channel = { isTextBased: () => true, send: vi.fn().mockResolvedValue({ id: 'm1' }) };
   const a = express();
   a.use(express.json());
+  a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use(
     '/api/rules',
     createRulesRouter({

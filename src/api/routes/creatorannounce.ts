@@ -6,6 +6,7 @@ import { getCreatorAnnounceConfig, updateCreatorAnnounceConfig } from '../../db/
 import { resolveYouTubeChannelId } from '../../bot/creator/youtubeFeed';
 import { announceContent } from '../../bot/creator/announce';
 import { optStr } from '../util';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface CreatorAnnounceDeps {
   client: Client;
@@ -18,13 +19,14 @@ const PING_MODES = ['everyone', 'here', 'role', 'none'];
 
 export function createCreatorAnnounceRouter(deps: CreatorAnnounceDeps): Router {
   const router = Router();
-  const guildId = deps.config.guildId;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     res.json({ config: await getCreatorAnnounceConfig(guildId) });
   });
 
   router.put('/config', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const current = await getCreatorAnnounceConfig(guildId);
     const data: Record<string, unknown> = {};
@@ -70,7 +72,8 @@ export function createCreatorAnnounceRouter(deps: CreatorAnnounceDeps): Router {
   });
 
   // Send a sample announcement to the configured channel so staff can verify the channel + ping.
-  router.post('/test', async (_req, res) => {
+  router.post('/test', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const cfg = await getCreatorAnnounceConfig(guildId);
     if (!cfg.channelId) return res.status(400).json({ error: 'لا توجد قناة محددة' });
     const ok = await announceContent(deps.client, cfg, 'youtube', {

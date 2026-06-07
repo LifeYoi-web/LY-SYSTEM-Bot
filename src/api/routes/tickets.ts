@@ -11,6 +11,7 @@ import {
 import { buildTicketPanel, closeTicket, reopenTicket } from '../../bot/tickets';
 import { optStr } from '../util';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface TicketsDeps {
   client: Client;
@@ -22,10 +23,10 @@ const MAX_MSG = 1000;
 
 export function createTicketsRouter(deps: TicketsDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
-  const guildId = config.guildId;
+  const { client, prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const [cfg, types, open, closed, transcripts] = await Promise.all([
       getTicketConfig(guildId),
       getTicketTypes(guildId),
@@ -46,6 +47,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
   });
 
   router.put('/config', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
@@ -64,6 +66,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
 
   // ---- ticket types ----
   router.post('/types', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const label = optStr(b.label);
     if (!label) return res.status(400).json({ error: 'label required' });
@@ -92,6 +95,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
   });
 
   router.put('/types/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.label !== undefined) {
@@ -120,6 +124,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
   });
 
   router.delete('/types/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     await prisma.ticketType.delete({ where: { id: req.params.id } }).catch(() => undefined);
     invalidateTicketTypes(guildId);
     res.json({ ok: true });
@@ -127,6 +132,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
 
   // ---- panel ----
   router.post('/panel', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const channelId = String((req.body ?? {}).channelId ?? '');
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     const [cfg, types] = await Promise.all([getTicketConfig(guildId), getTicketTypes(guildId)]);
@@ -142,6 +148,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
 
   // ---- live ticket actions ----
   router.post('/:id/close', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const ticket = await prisma.ticket.findFirst({ where: { id: req.params.id, guildId, status: 'open' } });
     if (!ticket) return res.status(404).json({ error: 'open ticket not found' });
     const guild = client.guilds.cache.get(guildId);
@@ -152,6 +159,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
   });
 
   router.post('/:id/reopen', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const ticket = await prisma.ticket.findFirst({ where: { id: req.params.id, guildId } });
     if (!ticket) return res.status(404).json({ error: 'ticket not found' });
     if (ticket.status === 'open') return res.status(400).json({ error: 'ticket already open' });
@@ -165,6 +173,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
 
   // ---- transcript viewer (served as HTML, opened in a new tab) ----
   router.get('/transcripts/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const t = await prisma.ticketTranscript.findFirst({ where: { id: req.params.id, guildId } });
     if (!t) return res.status(404).send('transcript not found');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

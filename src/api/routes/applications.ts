@@ -4,6 +4,7 @@ import type { Client, TextChannel } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { applyPanelEmbed, applyButtonRow } from '../../bot/applications';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface ApplicationsDeps {
   client: Client;
@@ -36,10 +37,10 @@ function normalizeQuestions(raw: unknown): NormQuestions {
 
 export function createApplicationsRouter(deps: ApplicationsDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
-  const guildId = config.guildId;
+  const { client, prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const [forms, submissions] = await Promise.all([
       prisma.applicationForm.findMany({
         where: { guildId },
@@ -52,6 +53,7 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
   });
 
   router.post('/forms', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const name = String(b.name ?? '').trim();
     if (!name || name.length > 80) return res.status(400).json({ error: 'name required (≤80 chars)' });
@@ -77,6 +79,7 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
   });
 
   router.put('/forms/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const existing = await prisma.applicationForm.findUnique({ where: { id: req.params.id } });
     if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
@@ -112,6 +115,7 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
   });
 
   router.post('/forms/:id/panel', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const channelId = String((req.body as Record<string, unknown>)?.channelId ?? '').trim();
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     const form = await prisma.applicationForm.findUnique({ where: { id: req.params.id } });

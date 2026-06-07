@@ -51,6 +51,7 @@ import { createTempVoiceRouter } from '../src/api/routes/tempvoice';
 function app() {
   const a = express();
   a.use(express.json());
+  a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use('/api/tempvoice', createTempVoiceRouter({ client: {} as any, prisma: {} as any, config: { guildId: 'g1' } }));
   return a;
 }

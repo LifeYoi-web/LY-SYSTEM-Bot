@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ChannelType, type Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface ServerDeps {
   client: Client;
@@ -33,10 +34,10 @@ function hexColor(c?: number | null): string | null {
 
 export function createServerRouter(deps: ServerDeps): Router {
   const router = Router();
-  const { client, config } = deps;
+  const { client } = deps;
 
-  function guild(res: import('express').Response) {
-    const g = client.guilds.cache.get(config.guildId);
+  function guild(guildId: string, res: import('express').Response) {
+    const g = client.guilds.cache.get(guildId);
     if (!g) {
       res.status(503).json({ error: 'guild not available' });
       return null;
@@ -44,8 +45,9 @@ export function createServerRouter(deps: ServerDeps): Router {
     return g;
   }
 
-  router.get('/', (_req, res) => {
-    const g = guild(res);
+  router.get('/', (req, res) => {
+    const guildId = tenantGuildId(req);
+    const g = guild(guildId, res);
     if (!g) return;
     const channels = [...g.channels.cache.values()];
     const byType: Record<string, number> = {};
@@ -69,8 +71,9 @@ export function createServerRouter(deps: ServerDeps): Router {
     });
   });
 
-  router.get('/channels', (_req, res) => {
-    const g = guild(res);
+  router.get('/channels', (req, res) => {
+    const guildId = tenantGuildId(req);
+    const g = guild(guildId, res);
     if (!g) return;
     const channels = [...g.channels.cache.values()]
       .map((c) => {
@@ -87,8 +90,9 @@ export function createServerRouter(deps: ServerDeps): Router {
     res.json({ channels });
   });
 
-  router.get('/roles', (_req, res) => {
-    const g = guild(res);
+  router.get('/roles', (req, res) => {
+    const guildId = tenantGuildId(req);
+    const g = guild(guildId, res);
     if (!g) return;
     const roles = [...g.roles.cache.values()]
       .filter((r) => (r as { id: string }).id !== g.id) // drop @everyone

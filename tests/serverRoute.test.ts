@@ -36,6 +36,7 @@ function fakeDeps(withGuild = true) {
 
 function app(deps: any) {
   const a = express();
+  a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use('/api/server', createServerRouter(deps));
   return a;
 }

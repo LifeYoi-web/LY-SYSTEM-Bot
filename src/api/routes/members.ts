@@ -3,6 +3,7 @@ import type { Client } from 'discord.js';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { clamp } from '../../shared/analytics';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface MembersDeps {
   client: Client;
@@ -46,10 +47,11 @@ function mapMember(m: any, guildId: string) {
 
 export function createMembersRouter(deps: MembersDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
+  const { client, prisma } = deps;
 
   router.get('/', (req, res) => {
-    const guild = client.guilds.cache.get(config.guildId);
+    const guildId = tenantGuildId(req);
+    const guild = client.guilds.cache.get(guildId);
     if (!guild) {
       res.status(503).json({ error: 'guild not available' });
       return;
@@ -83,7 +85,8 @@ export function createMembersRouter(deps: MembersDeps): Router {
   });
 
   router.get('/:id', async (req, res) => {
-    const guild = client.guilds.cache.get(config.guildId);
+    const guildId = tenantGuildId(req);
+    const guild = client.guilds.cache.get(guildId);
     if (!guild) {
       res.status(503).json({ error: 'guild not available' });
       return;
@@ -95,7 +98,7 @@ export function createMembersRouter(deps: MembersDeps): Router {
       return;
     }
     const cases = await prisma.moderationCase.findMany({
-      where: { guildId: config.guildId, targetUserId: id },
+      where: { guildId, targetUserId: id },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });

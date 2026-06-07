@@ -29,6 +29,7 @@ function fakeDeps() {
 describe('overview route', () => {
   it('returns enriched server stats', async () => {
     const app = express();
+    app.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
     app.use('/api/overview', createOverviewRouter(fakeDeps()));
     const res = await request(app).get('/api/overview').expect(200);
     expect(res.body).toMatchObject({
@@ -49,8 +50,8 @@ describe('overview route', () => {
 
   it('503s when the guild is unavailable', async () => {
     const deps = fakeDeps();
-    deps.config.guildId = 'missing';
     const app = express();
+    app.use((req, _res, next) => { (req as any).tenant = { guildId: 'missing' }; next(); });
     app.use('/api/overview', createOverviewRouter(deps));
     await request(app).get('/api/overview').expect(503);
   });

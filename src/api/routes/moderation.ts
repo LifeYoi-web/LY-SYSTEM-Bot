@@ -13,6 +13,7 @@ import {
 } from '../../bot/moderation/actions';
 import { makeModNotifier } from '../../bot/moderation/notify';
 import { logger } from '../../shared/logger';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface ModerationDeps {
   client: Client;
@@ -25,8 +26,8 @@ const MAX_MUTE_SECONDS = 2_419_200; // Discord timeout cap = 28 days
 export function createModerationRouter(deps: ModerationDeps): Router {
   const router = Router();
 
-  function resolveAction(res: Response): ActionDeps | null {
-    const guild = deps.client.guilds.cache.get(deps.config.guildId);
+  function resolveAction(guildId: string, res: Response): ActionDeps | null {
+    const guild = deps.client.guilds.cache.get(guildId);
     if (!guild) {
       res.status(503).json({ error: 'guild not available' });
       return null;
@@ -41,13 +42,14 @@ export function createModerationRouter(deps: ModerationDeps): Router {
   const moderatorId = (req: Request): string => req.session?.user?.id ?? 'unknown';
 
   router.post('/ban', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const { userId, reason, deleteMessageSeconds, expiresAt } = req.body ?? {};
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    const action = resolveAction(res);
+    const action = resolveAction(guildId, res);
     if (!action) return;
     try {
       const created = await banUser(action, {
-        guildId: deps.config.guildId,
+        guildId,
         targetUserId: String(userId),
         moderatorId: moderatorId(req),
         reason,
@@ -62,13 +64,14 @@ export function createModerationRouter(deps: ModerationDeps): Router {
   });
 
   router.post('/kick', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const { userId, reason } = req.body ?? {};
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    const action = resolveAction(res);
+    const action = resolveAction(guildId, res);
     if (!action) return;
     try {
       const created = await kickUser(action, {
-        guildId: deps.config.guildId,
+        guildId,
         targetUserId: String(userId),
         moderatorId: moderatorId(req),
         reason,
@@ -81,17 +84,18 @@ export function createModerationRouter(deps: ModerationDeps): Router {
   });
 
   router.post('/mute', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const { userId, reason, seconds } = req.body ?? {};
     if (!userId) return res.status(400).json({ error: 'userId required' });
     const secs = Number(seconds);
     if (!Number.isFinite(secs) || secs <= 0 || secs > MAX_MUTE_SECONDS) {
       return res.status(400).json({ error: `seconds must be 1..${MAX_MUTE_SECONDS}` });
     }
-    const action = resolveAction(res);
+    const action = resolveAction(guildId, res);
     if (!action) return;
     try {
       const created = await muteUser(action, {
-        guildId: deps.config.guildId,
+        guildId,
         targetUserId: String(userId),
         moderatorId: moderatorId(req),
         reason,
@@ -105,12 +109,13 @@ export function createModerationRouter(deps: ModerationDeps): Router {
   });
 
   router.post('/warn', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const { userId, reason } = req.body ?? {};
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    const action = resolveAction(res);
+    const action = resolveAction(guildId, res);
     if (!action) return;
     const created = await warnUser(action, {
-      guildId: deps.config.guildId,
+      guildId,
       targetUserId: String(userId),
       moderatorId: moderatorId(req),
       reason,
@@ -119,9 +124,10 @@ export function createModerationRouter(deps: ModerationDeps): Router {
   });
 
   router.get('/cases', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const userId = req.query.userId ? String(req.query.userId) : undefined;
     const cases = await deps.prisma.moderationCase.findMany({
-      where: { guildId: deps.config.guildId, ...(userId ? { targetUserId: userId } : {}) },
+      where: { guildId, ...(userId ? { targetUserId: userId } : {}) },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -129,7 +135,8 @@ export function createModerationRouter(deps: ModerationDeps): Router {
   });
 
   router.delete('/cases/:id', async (req, res) => {
-    const action = resolveAction(res);
+    const guildId = tenantGuildId(req);
+    const action = resolveAction(guildId, res);
     if (!action) return;
     const lifted = await liftCase(action, req.params.id);
     if (!lifted) return res.status(404).json({ error: 'case not found' });
