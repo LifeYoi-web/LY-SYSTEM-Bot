@@ -51,7 +51,11 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
-    if (b.categoryId !== undefined) data.categoryId = optStr(b.categoryId);
+    if (b.categoryId !== undefined) {
+      const v = optStr(b.categoryId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.categoryId = v;
+    }
     if (b.supportRoleId !== undefined) data.supportRoleId = optStr(b.supportRoleId);
     if (b.transcriptChannelId !== undefined) {
       const v = optStr(b.transcriptChannelId);
@@ -81,12 +85,16 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
     if ((await prisma.ticketType.count({ where: { guildId } })) >= limit) {
       return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
     }
+    const categoryId = optStr(b.categoryId);
+    if (categoryId && !channelInGuild(client, guildId, categoryId)) {
+      return res.status(400).json({ error: 'invalid channel' });
+    }
     const created = await prisma.ticketType.create({
       data: {
         guildId,
         label,
         emoji: optStr(b.emoji),
-        categoryId: optStr(b.categoryId),
+        categoryId,
         supportRoleId: optStr(b.supportRoleId),
         openMessage,
         pingSupport: b.pingSupport !== undefined ? Boolean(b.pingSupport) : true,
@@ -111,7 +119,11 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
       data.label = l;
     }
     if (b.emoji !== undefined) data.emoji = optStr(b.emoji);
-    if (b.categoryId !== undefined) data.categoryId = optStr(b.categoryId);
+    if (b.categoryId !== undefined) {
+      const v = optStr(b.categoryId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.categoryId = v;
+    }
     if (b.supportRoleId !== undefined) data.supportRoleId = optStr(b.supportRoleId);
     if (b.openMessage !== undefined) {
       const s = optStr(b.openMessage);

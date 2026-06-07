@@ -5,7 +5,7 @@ import type { AppConfig } from '../../shared/config';
 import { applyPanelEmbed, applyButtonRow } from '../../bot/applications';
 import { planLimit } from '../middleware/entitlements';
 import { tenantGuildId } from '../middleware/tenant';
-import { tenantTextChannel } from '../util';
+import { tenantTextChannel, channelInGuild } from '../util';
 
 export interface ApplicationsDeps {
   client: Client;
@@ -64,12 +64,16 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
     if ((await prisma.applicationForm.count({ where: { guildId } })) >= limit) {
       return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
     }
+    const reviewChannelId = optStr(b.reviewChannelId);
+    if (reviewChannelId && !channelInGuild(client, guildId, reviewChannelId)) {
+      return res.status(400).json({ error: 'invalid channel' });
+    }
     const form = await prisma.applicationForm.create({
       data: {
         guildId,
         name,
         description: optStr(b.description),
-        reviewChannelId: optStr(b.reviewChannelId),
+        reviewChannelId,
         acceptRoleId: optStr(b.acceptRoleId),
         enabled: b.enabled === undefined ? true : Boolean(b.enabled),
         questions: { create: q.data },
@@ -91,7 +95,11 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
       data.name = name;
     }
     if (b.description !== undefined) data.description = optStr(b.description);
-    if (b.reviewChannelId !== undefined) data.reviewChannelId = optStr(b.reviewChannelId);
+    if (b.reviewChannelId !== undefined) {
+      const v = optStr(b.reviewChannelId);
+      if (v && !channelInGuild(client, guildId, v)) return res.status(400).json({ error: 'invalid channel' });
+      data.reviewChannelId = v;
+    }
     if (b.acceptRoleId !== undefined) data.acceptRoleId = optStr(b.acceptRoleId);
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
 
