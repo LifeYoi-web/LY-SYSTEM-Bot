@@ -2,6 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
+// planLimit calls getPlan which reads the singleton prisma.subscription — mock it
+// so this test stays isolated. plan: 'custom' → Infinity → count check always passes.
+const { fakePrisma } = vi.hoisted(() => ({
+  fakePrisma: { subscription: { findUnique: vi.fn().mockResolvedValue({ plan: 'custom' }) } },
+}));
+vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
+
 // The tickets route reads config/types through the cached community helpers (backed by the
 // prisma singleton), so stub that module to keep the route DB-free in tests.
 vi.mock('../src/db/community', () => ({
@@ -39,6 +46,7 @@ function deps() {
         create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'ty1', ...data })),
         update: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'ty1', ...data })),
         delete: vi.fn().mockResolvedValue({}),
+        count: vi.fn().mockResolvedValue(0),
       },
     },
   } as any;

@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { Client, TextChannel } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { applyPanelEmbed, applyButtonRow } from '../../bot/applications';
+import { planLimit } from '../middleware/entitlements';
 
 export interface ApplicationsDeps {
   client: Client;
@@ -56,6 +57,10 @@ export function createApplicationsRouter(deps: ApplicationsDeps): Router {
     if (!name || name.length > 80) return res.status(400).json({ error: 'name required (≤80 chars)' });
     const q = normalizeQuestions(b.questions);
     if (!q.ok) return res.status(400).json({ error: q.error });
+    const limit = await planLimit(guildId, 'applicationForms');
+    if ((await prisma.applicationForm.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const form = await prisma.applicationForm.create({
       data: {
         guildId,

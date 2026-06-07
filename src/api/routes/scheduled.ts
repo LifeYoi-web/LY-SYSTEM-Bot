@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
+import { planLimit } from '../middleware/entitlements';
 
 export interface ScheduledDeps {
   prisma: PrismaClient;
@@ -29,6 +30,10 @@ export function createScheduledRouter(deps: ScheduledDeps): Router {
     if (!content) return res.status(400).json({ error: 'content required' });
     if (Number.isNaN(runAt.getTime())) return res.status(400).json({ error: 'invalid runAt' });
     if (!REPEATS.includes(repeat)) return res.status(400).json({ error: 'invalid repeat' });
+    const limit = await planLimit(guildId, 'scheduledMessages');
+    if ((await prisma.scheduledMessage.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const item = await prisma.scheduledMessage.create({ data: { guildId, channelId, content, runAt, repeat } });
     res.status(201).json(item);
   });

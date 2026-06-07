@@ -10,6 +10,7 @@ import {
 } from '../../db/community';
 import { buildTicketPanel, closeTicket, reopenTicket } from '../../bot/tickets';
 import { optStr } from '../util';
+import { planLimit } from '../middleware/entitlements';
 
 export interface TicketsDeps {
   client: Client;
@@ -69,6 +70,10 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
     if (label.length > 80) return res.status(400).json({ error: 'label too long' });
     const openMessage = b.openMessage !== undefined ? optStr(b.openMessage) : null;
     if (openMessage && openMessage.length > MAX_MSG) return res.status(400).json({ error: 'openMessage too long' });
+    const limit = await planLimit(guildId, 'ticketTypes');
+    if ((await prisma.ticketType.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const created = await prisma.ticketType.create({
       data: {
         guildId,

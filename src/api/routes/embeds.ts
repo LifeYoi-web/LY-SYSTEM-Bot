@@ -3,6 +3,7 @@ import type { PrismaClient, Prisma } from '@prisma/client';
 import type { Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { postOrEditEmbed, isValidEmbed, type EmbedPayload } from '../../bot/embeds';
+import { planLimit } from '../middleware/entitlements';
 
 export interface EmbedsDeps {
   client: Client;
@@ -26,6 +27,10 @@ export function createEmbedsRouter(deps: EmbedsDeps): Router {
     if (!name || name.length > 80) return res.status(400).json({ error: 'name required (≤80 chars)' });
     const payload = (b.payload ?? {}) as EmbedPayload;
     if (!isValidEmbed(payload)) return res.status(400).json({ error: 'embed needs a title, description, or fields' });
+    const limit = await planLimit(guildId, 'savedEmbeds');
+    if ((await prisma.savedEmbed.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const created = await prisma.savedEmbed
       .create({ data: { guildId, name, payload: payload as Prisma.InputJsonValue } })
       .catch(() => null);

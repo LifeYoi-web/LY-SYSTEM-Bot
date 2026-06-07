@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { parseDuration } from '../../shared/duration';
 import { buildGiveawayMessage, endGiveaway, rerollGiveaway } from '../../bot/giveaways';
+import { planLimit } from '../middleware/entitlements';
 
 export interface GiveawaysDeps {
   client: Client;
@@ -33,6 +34,11 @@ export function createGiveawaysRouter(deps: GiveawaysDeps): Router {
       return res.status(400).json({ error: 'winnerCount must be 1..50' });
     }
     if (ms == null) return res.status(400).json({ error: 'duration must look like 10m / 2h / 1d' });
+
+    const limit = await planLimit(guildId, 'activeGiveaways');
+    if ((await prisma.giveaway.count({ where: { guildId, ended: false } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
 
     const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
     if (!channel?.isTextBased?.()) return res.status(400).json({ error: 'invalid channel' });

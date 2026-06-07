@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
+import { planLimit } from '../middleware/entitlements';
 
 export interface ShopDeps {
   prisma: PrismaClient;
@@ -43,6 +44,10 @@ export function createShopRouter(deps: ShopDeps): Router {
       return res.status(400).json({ error: 'requiredLevel must be 0..1000 or empty' });
     }
     const position = Number(b.position ?? 0) || 0;
+    const limit = await planLimit(guildId, 'shopItems');
+    if ((await prisma.shopItem.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const item = await prisma.shopItem.create({
       data: { guildId, roleId, price, label, stock, durationHours, requiredLevel, position },
     });

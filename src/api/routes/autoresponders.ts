@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { invalidateAutoResponses } from '../../db/autoresponses';
+import { planLimit } from '../middleware/entitlements';
 
 export interface AutoRespondersDeps {
   prisma: PrismaClient;
@@ -27,6 +28,10 @@ export function createAutoRespondersRouter(deps: AutoRespondersDeps): Router {
     const matchType = String(b.matchType ?? 'contains');
     if (!trigger || !reply) return res.status(400).json({ error: 'trigger and reply required' });
     if (!MATCH_TYPES.includes(matchType)) return res.status(400).json({ error: 'invalid matchType' });
+    const limit = await planLimit(guildId, 'autoResponses');
+    if ((await prisma.autoResponse.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const item = await prisma.autoResponse.create({
       data: { guildId, trigger, reply, matchType, enabled: b.enabled === undefined ? true : Boolean(b.enabled) },
     });

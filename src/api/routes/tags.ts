@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
+import { planLimit } from '../middleware/entitlements';
 
 export interface TagsDeps {
   prisma: PrismaClient;
@@ -24,6 +25,10 @@ export function createTagsRouter(deps: TagsDeps): Router {
     if (!name || !content) return res.status(400).json({ error: 'name and content required' });
     const exists = await prisma.tag.findUnique({ where: { guildId_name: { guildId, name } } });
     if (exists) return res.status(409).json({ error: 'a tag with that name already exists' });
+    const limit = await planLimit(guildId, 'tags');
+    if ((await prisma.tag.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const tag = await prisma.tag.create({ data: { guildId, name, content } });
     res.status(201).json(tag);
   });

@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+
+// planLimit calls getPlan which reads the singleton prisma.subscription — mock it
+// so this test stays isolated. plan: 'custom' → Infinity → count check always passes.
+const { fakePrisma } = vi.hoisted(() => ({
+  fakePrisma: { subscription: { findUnique: vi.fn().mockResolvedValue({ plan: 'custom' }) } },
+}));
+vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
+
 import { createTagsRouter } from '../src/api/routes/tags';
 
 function deps(existing: unknown = null) {
@@ -11,6 +19,7 @@ function deps(existing: unknown = null) {
         findMany: vi.fn().mockResolvedValue([{ id: 't1', name: 'rules', content: 'be nice' }]),
         findUnique: vi.fn().mockResolvedValue(existing),
         create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 't1', ...data })),
+        count: vi.fn().mockResolvedValue(0),
       },
     },
   } as any;

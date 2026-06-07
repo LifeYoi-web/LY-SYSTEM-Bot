@@ -9,6 +9,7 @@ import {
 } from 'discord.js';
 import type { PrismaClient, Prisma } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
+import { planLimit } from '../middleware/entitlements';
 
 export interface RolePanelsDeps {
   client: Client;
@@ -76,6 +77,10 @@ export function createRolePanelsRouter(deps: RolePanelsDeps): Router {
     if (!title) return res.status(400).json({ error: 'title required' });
     const roles = validateRoles(b.roles ?? []);
     if (roles === null) return res.status(400).json({ error: 'invalid roles' });
+    const limit = await planLimit(guildId, 'rolePanels');
+    if ((await prisma.rolePanel.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const panel = await prisma.rolePanel.create({
       data: {
         guildId,

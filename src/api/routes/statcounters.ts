@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
+import { planLimit } from '../middleware/entitlements';
 
 export interface StatCountersDeps {
   prisma: PrismaClient;
@@ -26,6 +27,10 @@ export function createStatCountersRouter(deps: StatCountersDeps): Router {
     const template = String(b.template ?? '{name}: {count}').slice(0, 100);
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     if (!TYPES.includes(type)) return res.status(400).json({ error: `type must be one of ${TYPES.join(', ')}` });
+    const limit = await planLimit(guildId, 'statCounters');
+    if ((await prisma.statCounter.count({ where: { guildId } })) >= limit) {
+      return res.status(403).json({ error: 'limit reached', upgrade: true, limit });
+    }
     const counter = await prisma.statCounter.create({ data: { guildId, channelId, type, template } });
     res.status(201).json(counter);
   });
