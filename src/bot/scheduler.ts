@@ -13,7 +13,7 @@ import {
   runChurnAlerts,
   pruneOldTranscripts,
 } from './scheduler-tasks';
-import { sweepVoiceXp } from './voiceXp';
+import { sweepVoiceXp, pruneVoiceXpClock } from './voiceXp';
 import { pollCreatorContent } from './creator/poll';
 import { logger } from '../shared/logger';
 
@@ -148,8 +148,10 @@ export async function runSchedulerTick(deps: GuildTickDeps, state: TickState): P
 
 /**
  * Multi-guild sweep: run the (tenant-isolated) per-guild tick once for every
- * guild the shared bot is currently in, each with its own TickState. One
- * guild's failure never blocks the others. State for departed guilds is pruned.
+ * guild the shared bot is currently in, each with its own TickState. Guilds run
+ * SEQUENTIALLY — a slow tenant delays later ones (acceptable at current scale);
+ * one guild's failure never blocks the others. State for departed guilds is
+ * pruned (tick state + the voice-XP clock).
  */
 export async function runSchedulerSweep(deps: SchedulerDeps, states: Map<string, TickState>): Promise<void> {
   for (const guildId of deps.client.guilds.cache.keys()) {
@@ -165,11 +167,26 @@ export async function runSchedulerSweep(deps: SchedulerDeps, states: Map<string,
   for (const guildId of states.keys()) {
     if (!deps.client.guilds.cache.has(guildId)) states.delete(guildId);
   }
+  pruneVoiceXpClock(new Set(deps.client.guilds.cache.keys()));
 }
 
-export function startScheduler(deps: SchedulerDeps, intervalMs = 60_000): NodeJS.Timeout {
+export function startScheduler(
+  deps: SchedulerDeps,
+  intervalMs = 60_000,
+  sweep: (deps: SchedulerDeps, states: Map<string, TickState>) => Promise<void> = runSchedulerSweep,
+): NodeJS.Timeout {
   const states = new Map<string, TickState>();
-  const handle = setInterval(() => void runSchedulerSweep(deps, states), intervalMs);
+  // In-flight guard (same pattern as boot's retryLogin): once the fleet grows,
+  // a sweep can outlast the interval — overlapping sweeps would share TickState
+  // and double-fire due sends. Skip the beat instead.
+  let inFlight = false;
+  const handle = setInterval(() => {
+    if (inFlight) return;
+    inFlight = true;
+    void sweep(deps, states).finally(() => {
+      inFlight = false;
+    });
+  }, intervalMs);
   handle.unref?.();
   return handle;
 }

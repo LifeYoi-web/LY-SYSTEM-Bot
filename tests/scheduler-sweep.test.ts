@@ -8,8 +8,8 @@ const { fakePrisma } = vi.hoisted(() => ({
 }));
 vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
 
-import { runSchedulerSweep, createTickState } from '../src/bot/scheduler';
-import { sweepVoiceXp, _resetVoiceXpClock } from '../src/bot/voiceXp';
+import { runSchedulerSweep, startScheduler, createTickState } from '../src/bot/scheduler';
+import { sweepVoiceXp, _resetVoiceXpClock, pruneVoiceXpClock } from '../src/bot/voiceXp';
 import { _resetPlans } from '../src/db/subscriptions';
 
 beforeEach(() => {
@@ -51,6 +51,51 @@ describe('runSchedulerSweep', () => {
     await runSchedulerSweep({ client: clientWith(['g1']), prisma: benignPrisma() } as any, states);
     expect(states.has('g-old')).toBe(false);
     expect(states.has('g1')).toBe(true);
+  });
+
+  it('skips interval beats while a sweep is still in flight (no overlapping sweeps)', async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveSweep!: () => void;
+      const sweepSpy = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSweep = resolve;
+          }),
+      );
+      const handle = startScheduler({ client: clientWith([]), prisma: benignPrisma() } as any, 1_000, sweepSpy as any);
+      await vi.advanceTimersByTimeAsync(3_500); // 3 interval beats elapse
+      expect(sweepSpy).toHaveBeenCalledTimes(1); // beats 2-3 skipped — first sweep still in flight
+      resolveSweep(); // first sweep settles
+      await vi.advanceTimersByTimeAsync(1_000); // next beat
+      expect(sweepSpy).toHaveBeenCalledTimes(2); // sweeping resumes once the guard clears
+      clearInterval(handle);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('pruneVoiceXpClock', () => {
+  it('drops departed guilds — a re-join re-establishes the baseline instead of crediting a stale window', async () => {
+    fakePrisma.subscription.findUnique.mockResolvedValue({ plan: 'premium' });
+    fakePrisma.levelConfig.upsert.mockResolvedValue({
+      enabled: true,
+      voiceXpEnabled: true,
+      voiceXpPerMinute: 10,
+      multiplier: 1,
+      ignoredVoiceChannelIds: [],
+    });
+    const guildCacheGetSpy = vi.fn().mockReturnValue(undefined);
+    const client = { guilds: { cache: { get: guildCacheGetSpy } } } as any;
+    const t0 = 1_000_000;
+    await sweepVoiceXp(client, {} as any, 'g-old', t0); // baseline established
+    pruneVoiceXpClock(new Set(['g-other'])); // g-old departed
+    guildCacheGetSpy.mockClear();
+    // Without the prune this second call would pass the elapsed check and reach guild lookup;
+    // after the prune it is a fresh baseline run (returns 0 before the lookup).
+    expect(await sweepVoiceXp(client, {} as any, 'g-old', t0 + 120_000)).toBe(0);
+    expect(guildCacheGetSpy).not.toHaveBeenCalled();
   });
 });
 

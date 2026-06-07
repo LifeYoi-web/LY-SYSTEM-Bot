@@ -17,6 +17,13 @@ export function _resetVoiceXpClock(): void {
   lastSweep.clear();
 }
 
+/** Drop clock entries for guilds the bot is no longer in (called by the sweep's prune phase). */
+export function pruneVoiceXpClock(activeGuildIds: ReadonlySet<string>): void {
+  for (const id of lastSweep.keys()) {
+    if (!activeGuildIds.has(id)) lastSweep.delete(id);
+  }
+}
+
 export async function sweepVoiceXp(
   client: Client,
   prisma: PrismaClient,
