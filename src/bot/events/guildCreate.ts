@@ -15,7 +15,10 @@ module.exports = {
       await ensureSubscription(guild.id); // free tier by default; re-join keeps the old plan
       allowStatsGuild(guild.id);
       const dashboardUrl = process.env.DASHBOARD_URL || '';
-      if (dashboardUrl) await postOnboarding(guild, dashboardUrl);
+      if (dashboardUrl) {
+        const posted = await postOnboarding(guild, dashboardUrl);
+        if (!posted) logger.info(`Onboarding not posted for ${guild.id} (no sendable channel)`);
+      }
     } catch (err) {
       logger.error(`guildCreate setup failed for ${guild.id}: ${err}`);
     }

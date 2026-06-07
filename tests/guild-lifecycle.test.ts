@@ -81,6 +81,18 @@ describe('guildCreate', () => {
     fakePrisma.guildSettings.upsert.mockRejectedValueOnce(new Error('db down'));
     await expect(guildCreate.execute(fakeGuild())).resolves.toBeUndefined();
   });
+
+  it('partial failure: subscription error skips stats + onboarding without throwing', async () => {
+    fakePrisma.subscription.upsert.mockRejectedValueOnce(new Error('db hiccup'));
+    const g = fakeGuild('g-partial');
+    await expect(guildCreate.execute(g)).resolves.toBeUndefined();
+    expect(g.systemChannel.send).not.toHaveBeenCalled(); // onboarding skipped
+    // stats NOT allowlisted: a bump for the guild never reaches flush
+    bump('g-partial', 'messages');
+    const upsertSpy = vi.fn().mockResolvedValue({});
+    await flushStats({ dailyStat: { upsert: upsertSpy } } as any, 'g-partial');
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe('guildDelete', () => {
