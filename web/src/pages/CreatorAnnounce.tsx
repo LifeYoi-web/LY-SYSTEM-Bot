@@ -19,7 +19,7 @@ const PING_OPTIONS = [
 ];
 
 export function CreatorAnnounce() {
-  const { data, isLoading } = useCreatorAnnounce();
+  const { data, isLoading, error } = useCreatorAnnounce();
   const save = useUpdateCreatorAnnounce();
   const test = useTestCreatorAnnounce();
   const channels = useChannelOptions(['text']);
@@ -27,6 +27,10 @@ export function CreatorAnnounce() {
   const [d, setD] = useState<CreatorAnnounceConfig | null>(null);
   const { data: ent } = useEntitlements();
   useEffect(() => { if (data?.config) setD(data.config); }, [data]);
+  if ((error as any)?.status === 403) {
+    if (ent) return <PremiumLock feature="creatorAlerts" ent={ent} />;
+    return <div className="tr-sub" style={{ padding: 24 }}>ميزة بريميوم — رقِّ سيرفرك لفتحها</div>;
+  }
   if (isLoading || !d) return <SkeletonRows rows={7} />;
   const set = <K extends keyof CreatorAnnounceConfig>(k: K, v: CreatorAnnounceConfig[K]) => setD({ ...d, [k]: v });
 

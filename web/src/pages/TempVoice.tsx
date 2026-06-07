@@ -7,13 +7,17 @@ import { useEntitlements } from '../lib/hooks';
 import { PremiumLock } from '../components/PremiumLock';
 
 export function TempVoice() {
-  const { data, isLoading } = useTempVoice();
+  const { data, isLoading, error } = useTempVoice();
   const save = useUpdateTempVoice();
   const voiceChannels = useChannelOptions(['voice']);
   const categories = useChannelOptions(['category']);
   const [d, setD] = useState<TempVoiceConfig | null>(null);
   const { data: ent } = useEntitlements();
   useEffect(() => { if (data?.config) setD(data.config); }, [data]);
+  if ((error as any)?.status === 403) {
+    if (ent) return <PremiumLock feature="tempVoice" ent={ent} />;
+    return <div className="tr-sub" style={{ padding: 24 }}>ميزة بريميوم — رقِّ سيرفرك لفتحها</div>;
+  }
   if (isLoading || !d) return <SkeletonRows rows={6} />;
   const set = <K extends keyof TempVoiceConfig>(k: K, v: TempVoiceConfig[K]) => setD({ ...d, [k]: v });
 

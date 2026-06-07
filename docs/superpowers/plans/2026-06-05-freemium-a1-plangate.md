@@ -1262,5 +1262,5 @@ git commit -m "feat(saas): dashboard entitlements hook + premium lock banners (f
 
 ## A2 follow-ups discovered in the A1 final review (free-tier-only; no effect on the custom owner guild)
 
-- [ ] **403'd GET leaves gated pages on skeleton:** `/api/tempvoice` + `/api/creatorannounce` are router-wide `requireFeature`-gated, so a free guild's GET 403s and the page's `isLoading` skeleton never resolves — the `PremiumLock` banner below it never renders. Fix in A2: gate mutating verbs only, or render the lock banner on a 403 GET.
-- [ ] **`welcomeCustomBg` UI lock asymmetric with `welcomeStyles`:** Welcome page coerces only `welcomeCardStyle` to `classic` when locked; a downgraded guild with a saved custom BG would 403 on every save. Fix in A2: disable the BG upload + coerce/clear `welcomeCardBg` when locked, mirroring the style handling.
+- [x] **403'd GET leaves gated pages on skeleton:** `/api/tempvoice` + `/api/creatorannounce` are router-wide `requireFeature`-gated, so a free guild's GET 403s and the page's `isLoading` skeleton never resolves — the `PremiumLock` banner below it never renders. Fix in A2: gate mutating verbs only, or render the lock banner on a 403 GET.
+- [x] **`welcomeCustomBg` UI lock asymmetric with `welcomeStyles`:** Welcome page coerces only `welcomeCardStyle` to `classic` when locked; a downgraded guild with a saved custom BG would 403 on every save. Fix in A2: disable the BG upload + coerce/clear `welcomeCardBg` when locked, mirroring the style handling.

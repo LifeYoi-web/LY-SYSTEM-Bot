@@ -49,6 +49,7 @@ export function Welcome() {
   const fileInput = useRef<HTMLInputElement>(null);
   const { data: ent } = useEntitlements();
   const stylesLocked = ent?.features.welcomeStyles === false;
+  const bgLocked = ent?.features.welcomeCustomBg === false;
 
   useEffect(() => { if (data) setD(data); }, [data]);
 
@@ -68,7 +69,8 @@ export function Welcome() {
         goodbyeMessage: d.goodbyeMessage,
         autoRoleId: d.autoRoleId,
         welcomeUseCard: d.welcomeUseCard,
-        welcomeCardBg: d.welcomeCardBg,
+        // Locked plans coerce to null so a stale premium BG can't 403 every save after a downgrade.
+        welcomeCardBg: bgLocked ? null : d.welcomeCardBg,
         // Locked plans coerce to classic so an old premium pick can't 403 every save after a downgrade.
         welcomeCardStyle: stylesLocked ? 'classic' : d.welcomeCardStyle,
         welcomeButtons: d.welcomeButtons,
@@ -169,14 +171,20 @@ export function Welcome() {
                 <div className="hint">الخلفية المخصّصة أدناه تعمل مع الستايل «الكلاسيكي» فقط — بقية الستايلات فنّها هو الخلفية.</div>
               </div>
             )}
-            <div className="field"><label>خلفية مخصّصة للبطاقة (PNG/JPG، ≤ ١٫٥MB)</label>
+            <div className="field" style={{ opacity: bgLocked ? 0.5 : 1 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {bgLocked && <Icon name="lock" size={11} />}
+                خلفية مخصّصة للبطاقة (PNG/JPG، ≤ ١٫٥MB)
+              </label>
               <div className="row" style={{ gap: 8 }}>
                 <input ref={fileInput} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadBg(f); }} />
-                <button className="btn btn-ghost btn-sm" onClick={() => fileInput.current?.click()}><Icon name="plus" /> رفع</button>
-                {d.welcomeCardBg && <button className="btn btn-ghost btn-sm" onClick={() => set('welcomeCardBg', null)}><Icon name="trash" /> إزالة</button>}
-                <div className="tr-sub" style={{ flex: 1 }}>{d.welcomeCardBg ? 'خلفية مخصّصة محفوظة (تُطبَّق على الكلاسيكي فقط)' : 'تُستخدم خلفية الستايل المختار'}</div>
+                <button className="btn btn-ghost btn-sm" disabled={bgLocked} onClick={() => !bgLocked && fileInput.current?.click()} style={{ cursor: bgLocked ? 'not-allowed' : undefined }}><Icon name="plus" /> رفع</button>
+                {d.welcomeCardBg && !bgLocked && <button className="btn btn-ghost btn-sm" onClick={() => set('welcomeCardBg', null)}><Icon name="trash" /> إزالة</button>}
+                <div className="tr-sub" style={{ flex: 1 }}>
+                  {bgLocked ? 'الخلفية المخصّصة ميزة بريميوم — رقِّ السيرفر لفتحها' : d.welcomeCardBg ? 'خلفية مخصّصة محفوظة (تُطبَّق على الكلاسيكي فقط)' : 'تُستخدم خلفية الستايل المختار'}
+                </div>
               </div>
-              {d.welcomeCardBg && <img src={d.welcomeCardBg} alt="" style={{ marginTop: 8, maxWidth: '100%', borderRadius: 8, border: '1px solid var(--line, #2a2f3a)' }} />}
+              {d.welcomeCardBg && !bgLocked && <img src={d.welcomeCardBg} alt="" style={{ marginTop: 8, maxWidth: '100%', borderRadius: 8, border: '1px solid var(--line, #2a2f3a)' }} />}
             </div>
             <div className="field"><label>حذف الذكر (@ping) بعد كم ثانية (٠ = ابقِه)</label><input type="number" className="input" min={0} max={60} value={d.welcomeMentionDeleteSeconds} onChange={(e) => set('welcomeMentionDeleteSeconds', Math.max(0, Math.min(60, Number(e.target.value) || 0)))} /></div>
           </div>
