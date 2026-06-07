@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface StatCountersDeps {
   prisma: PrismaClient;
@@ -12,15 +13,16 @@ const TYPES = ['members', 'humans', 'bots', 'roles', 'channels', 'boosts'];
 
 export function createStatCountersRouter(deps: StatCountersDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const counters = await prisma.statCounter.findMany({ where: { guildId } });
     res.json({ counters });
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const channelId = String(b.channelId ?? '');
     const type = String(b.type ?? '');

@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getBirthdayConfig, updateBirthdayConfig } from '../../db/community';
 import { optStr } from '../util';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface BirthdaysDeps {
   prisma: PrismaClient;
@@ -11,10 +12,10 @@ export interface BirthdaysDeps {
 
 export function createBirthdaysRouter(deps: BirthdaysDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const [cfg, birthdays] = await Promise.all([
       getBirthdayConfig(guildId),
       prisma.birthday.findMany({ where: { guildId }, orderBy: [{ month: 'asc' }, { day: 'asc' }] }),
@@ -23,6 +24,7 @@ export function createBirthdaysRouter(deps: BirthdaysDeps): Router {
   });
 
   router.put('/config', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);

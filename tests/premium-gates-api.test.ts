@@ -47,6 +47,7 @@ const levelCfg = {
 function settingsApp() {
   const a = express();
   a.use(express.json());
+  a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use('/api/settings', createSettingsRouter({ config: { guildId: 'g1' } } as any));
   return a;
 }
@@ -54,6 +55,7 @@ function settingsApp() {
 function levelingApp() {
   const a = express();
   a.use(express.json());
+  a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use('/api/leveling', createLevelingRouter({
     config: { guildId: 'g1' },
     prisma: {

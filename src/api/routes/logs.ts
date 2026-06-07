@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { clamp } from '../../shared/analytics';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface LogsDeps {
   prisma: PrismaClient;
@@ -10,13 +11,14 @@ export interface LogsDeps {
 
 export function createLogsRouter(deps: LogsDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
+  const { prisma } = deps;
 
   router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const type = req.query.type ? String(req.query.type) : undefined;
     const limit = clamp(Number(req.query.limit ?? 25), 1, 100);
     const page = Math.max(Math.trunc(Number(req.query.page ?? 1)) || 1, 1);
-    const where = { guildId: config.guildId, ...(type ? { type } : {}) };
+    const where = { guildId, ...(type ? { type } : {}) };
 
     const [logs, total] = await Promise.all([
       prisma.logEntry.findMany({

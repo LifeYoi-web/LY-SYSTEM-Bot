@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { AppConfig } from '../../shared/config';
 import { getAlertConfig, updateAlertConfig } from '../../db/community';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface AlertsDeps {
   config: Pick<AppConfig, 'guildId'>;
@@ -13,13 +14,14 @@ const optStr = (v: unknown): string | null => {
 
 export function createAlertsRouter(deps: AlertsDeps): Router {
   const router = Router();
-  const guildId = deps.config.guildId;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     res.json(await getAlertConfig(guildId));
   });
 
   router.put('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     for (const k of ['enabled', 'leaveSpikeEnabled', 'activityDropEnabled', 'joinSpikeEnabled'] as const) {

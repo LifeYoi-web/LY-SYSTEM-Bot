@@ -18,6 +18,7 @@ const row = { guildId: 'g1', logChannelId: null, staffRoleIds: [] as string[] };
 function app() {
   const a = express();
   a.use(express.json());
+  a.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
   a.use('/api/settings', createSettingsRouter({ config: { guildId: 'g1' } } as any));
   return a;
 }

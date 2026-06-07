@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface ShopDeps {
   prisma: PrismaClient;
@@ -18,15 +19,16 @@ function intOrNull(v: unknown, min: number, max: number): number | null | undefi
 
 export function createShopRouter(deps: ShopDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const items = await prisma.shopItem.findMany({ where: { guildId }, orderBy: { position: 'asc' } });
     res.json({ items });
   });
 
   router.post('/items', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const roleId = String(b.roleId ?? '').trim();
     const price = Number(b.price);

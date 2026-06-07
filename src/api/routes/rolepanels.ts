@@ -10,6 +10,7 @@ import {
 import type { PrismaClient, Prisma } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface RolePanelsDeps {
   client: Client;
@@ -63,15 +64,16 @@ export function buildPanelMessage(panel: { title: string; description: string | 
 
 export function createRolePanelsRouter(deps: RolePanelsDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
-  const guildId = config.guildId;
+  const { client, prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const panels = await prisma.rolePanel.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' } });
     res.json({ panels });
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const title = String(b.title ?? '').trim().slice(0, 256);
     if (!title) return res.status(400).json({ error: 'title required' });
@@ -112,6 +114,7 @@ export function createRolePanelsRouter(deps: RolePanelsDeps): Router {
   });
 
   router.post('/:id/post', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const channelId = String((req.body ?? {}).channelId ?? '');
     if (!channelId) return res.status(400).json({ error: 'channelId required' });
     const panel = await prisma.rolePanel.findUnique({ where: { id: req.params.id } });

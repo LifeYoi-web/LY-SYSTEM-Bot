@@ -19,6 +19,7 @@ describe('logs route', () => {
   it('returns paginated logs with a type filter', async () => {
     const d = deps();
     const app = express();
+    app.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
     app.use('/api/logs', createLogsRouter(d));
     const res = await request(app).get('/api/logs?type=mod_ban&limit=10&page=1').expect(200);
     expect(res.body).toMatchObject({ total: 1, page: 1, limit: 10, pages: 1 });
@@ -31,6 +32,7 @@ describe('logs route', () => {
   it('clamps limit and computes skip from page', async () => {
     const d = deps();
     const app = express();
+    app.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
     app.use('/api/logs', createLogsRouter(d));
     await request(app).get('/api/logs?limit=999&page=3').expect(200);
     expect(d.prisma.logEntry.findMany).toHaveBeenCalledWith(

@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getEconomyConfig, updateEconomyConfig } from '../../db/community';
 import { addCoins } from '../../bot/economy';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface EconomyDeps {
   prisma: PrismaClient;
@@ -11,10 +12,10 @@ export interface EconomyDeps {
 
 export function createEconomyRouter(deps: EconomyDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const [cfg, leaderboard] = await Promise.all([
       getEconomyConfig(guildId),
       prisma.wallet.findMany({ where: { guildId }, orderBy: { balance: 'desc' }, take: 25 }),
@@ -23,6 +24,7 @@ export function createEconomyRouter(deps: EconomyDeps): Router {
   });
 
   router.put('/config', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
@@ -55,6 +57,7 @@ export function createEconomyRouter(deps: EconomyDeps): Router {
 
   // Staff grant/deduct currency to a member.
   router.post('/grant', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const userId = String(b.userId ?? '').trim();
     const amount = Number(b.amount);

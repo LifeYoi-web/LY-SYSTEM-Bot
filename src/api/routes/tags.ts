@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface TagsDeps {
   prisma: PrismaClient;
@@ -10,15 +11,16 @@ export interface TagsDeps {
 
 export function createTagsRouter(deps: TagsDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const tags = await prisma.tag.findMany({ where: { guildId }, orderBy: { name: 'asc' } });
     res.json({ tags });
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const name = String(b.name ?? '').trim().toLowerCase().slice(0, 32);
     const content = String(b.content ?? '').trim().slice(0, 2000);
@@ -34,6 +36,7 @@ export function createTagsRouter(deps: TagsDeps): Router {
   });
 
   router.put('/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.content !== undefined) data.content = String(b.content).trim().slice(0, 2000);

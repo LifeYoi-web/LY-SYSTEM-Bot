@@ -18,6 +18,7 @@ beforeEach(() => {
 
 function appWith(mw: any, guildId = 'g1') {
   const a = express();
+  a.use((req, _res, next) => { (req as any).tenant = { guildId }; next(); });
   a.use('/gated', mw, (_req: any, res: any) => res.json({ ok: true }));
   a.use('/api/entitlements', createEntitlementsRouter({ config: { guildId } } as any));
   return a;

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { AppConfig } from '../../shared/config';
 import { getStarboard, updateStarboard } from '../../db/community';
 import { optStr } from '../util';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface StarboardDeps {
   config: Pick<AppConfig, 'guildId'>;
@@ -9,11 +10,14 @@ export interface StarboardDeps {
 
 export function createStarboardRouter(deps: StarboardDeps): Router {
   const router = Router();
-  const guildId = deps.config.guildId;
 
-  router.get('/', async (_req, res) => res.json(await getStarboard(guildId)));
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
+    res.json(await getStarboard(guildId));
+  });
 
   router.put('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);

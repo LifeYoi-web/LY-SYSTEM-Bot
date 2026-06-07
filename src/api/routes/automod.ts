@@ -7,6 +7,7 @@ import {
   type EditableAutoMod,
   type AutoModAction,
 } from '../../db/automod';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface AutoModDeps {
   config: Pick<AppConfig, 'guildId'>;
@@ -25,13 +26,14 @@ function normalizeWords(input: unknown[]): string[] {
 
 export function createAutoModRouter(deps: AutoModDeps): Router {
   const router = Router();
-  const { config } = deps;
 
-  router.get('/', async (_req, res) => {
-    res.json(await getAutoMod(config.guildId));
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
+    res.json(await getAutoMod(guildId));
   });
 
   router.put('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: EditableAutoMod = {};
 
@@ -79,7 +81,7 @@ export function createAutoModRouter(deps: AutoModDeps): Router {
       }
     }
 
-    res.json(await updateAutoMod(config.guildId, data));
+    res.json(await updateAutoMod(guildId, data));
   });
 
   return router;

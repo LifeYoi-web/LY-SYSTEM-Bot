@@ -52,6 +52,7 @@ describe('analytics route', () => {
 
   it('returns a dense series, totals, distribution and top moderators', async () => {
     const app = express();
+    app.use((req, _res, next) => { (req as any).tenant = { guildId: 'g1' }; next(); });
     app.use('/api/analytics', createAnalyticsRouter(deps()));
     const res = await request(app).get('/api/analytics').expect(200);
     expect(res.body.days).toBe(14);

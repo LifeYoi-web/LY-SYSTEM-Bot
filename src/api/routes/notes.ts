@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { optStr } from '../util';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface NotesDeps {
   prisma: PrismaClient;
@@ -12,10 +13,10 @@ const MAX_CONTENT = 1000;
 
 export function createNotesRouter(deps: NotesDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
   router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const userId = req.query.userId ? String(req.query.userId) : undefined;
     const notes = await prisma.memberNote.findMany({
       where: { guildId, ...(userId ? { userId } : {}) },
@@ -26,6 +27,7 @@ export function createNotesRouter(deps: NotesDeps): Router {
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const userId = optStr(b.userId);
     const content = optStr(b.content);
@@ -38,6 +40,7 @@ export function createNotesRouter(deps: NotesDeps): Router {
   });
 
   router.delete('/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const r = await prisma.memberNote.deleteMany({ where: { guildId, id: req.params.id } });
     if (r.count === 0) return res.status(404).json({ error: 'note not found' });
     res.json({ ok: true });

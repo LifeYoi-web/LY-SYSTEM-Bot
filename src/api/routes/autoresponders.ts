@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { invalidateAutoResponses } from '../../db/autoresponses';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface AutoRespondersDeps {
   prisma: PrismaClient;
@@ -13,15 +14,16 @@ const MATCH_TYPES = ['contains', 'exact', 'startswith'];
 
 export function createAutoRespondersRouter(deps: AutoRespondersDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const items = await prisma.autoResponse.findMany({ where: { guildId }, orderBy: { id: 'desc' } });
     res.json({ items });
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const trigger = String(b.trigger ?? '').trim().slice(0, 100);
     const reply = String(b.reply ?? '').trim().slice(0, 1000);
@@ -40,6 +42,7 @@ export function createAutoRespondersRouter(deps: AutoRespondersDeps): Router {
   });
 
   router.put('/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.trigger !== undefined) data.trigger = String(b.trigger).trim().slice(0, 100);
@@ -55,6 +58,7 @@ export function createAutoRespondersRouter(deps: AutoRespondersDeps): Router {
   });
 
   router.delete('/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
     await prisma.autoResponse.delete({ where: { id: req.params.id } }).catch(() => undefined);
     invalidateAutoResponses(guildId);
     res.json({ ok: true });

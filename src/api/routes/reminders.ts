@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface RemindersDeps {
   prisma: PrismaClient;
@@ -9,10 +10,10 @@ export interface RemindersDeps {
 
 export function createRemindersRouter(deps: RemindersDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const items = await prisma.reminder.findMany({ where: { guildId }, orderBy: { remindAt: 'asc' }, take: 100 });
     res.json({ items });
   });

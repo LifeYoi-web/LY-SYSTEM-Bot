@@ -4,6 +4,7 @@ import type { Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { getDigestConfig, updateDigestConfig } from '../../db/community';
 import { postWeeklyDigest } from '../../bot/scheduler-tasks';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface DigestDeps {
   client: Client;
@@ -18,13 +19,14 @@ const optStr = (v: unknown): string | null => {
 
 export function createDigestRouter(deps: DigestDeps): Router {
   const router = Router();
-  const guildId = deps.config.guildId;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     res.json(await getDigestConfig(guildId));
   });
 
   router.put('/config', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
@@ -38,7 +40,8 @@ export function createDigestRouter(deps: DigestDeps): Router {
   });
 
   // Post a digest now (ignores the weekday/once-per-day guards).
-  router.post('/test', async (_req, res) => {
+  router.post('/test', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const ok = await postWeeklyDigest({ client: deps.client, prisma: deps.prisma, guildId }, new Date(), true);
     res.json({ ok });
   });

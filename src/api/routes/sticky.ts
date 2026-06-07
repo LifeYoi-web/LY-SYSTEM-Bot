@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { repostSticky } from '../../bot/sticky';
 import { invalidateSticky } from '../../db/community';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface StickyDeps {
   client: Client;
@@ -13,15 +14,16 @@ export interface StickyDeps {
 
 export function createStickyRouter(deps: StickyDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
-  const guildId = config.guildId;
+  const { client, prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const items = await prisma.stickyMessage.findMany({ where: { guildId } });
     res.json({ items });
   });
 
   router.put('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const channelId = String(b.channelId ?? '');
     const content = String(b.content ?? '').trim().slice(0, 2000);
@@ -39,6 +41,7 @@ export function createStickyRouter(deps: StickyDeps): Router {
   });
 
   router.delete('/:channelId', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const channelId = req.params.channelId;
     const existing = await prisma.stickyMessage.findUnique({ where: { guildId_channelId: { guildId, channelId } } });
     if (existing?.lastMessageId) {

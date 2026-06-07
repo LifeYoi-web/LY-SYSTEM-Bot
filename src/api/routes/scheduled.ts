@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface ScheduledDeps {
   prisma: PrismaClient;
@@ -12,15 +13,16 @@ const REPEATS = ['none', 'daily', 'weekly'];
 
 export function createScheduledRouter(deps: ScheduledDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const items = await prisma.scheduledMessage.findMany({ where: { guildId }, orderBy: { runAt: 'asc' } });
     res.json({ items });
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const channelId = String(b.channelId ?? '');
     const content = String(b.content ?? '').trim().slice(0, 2000);

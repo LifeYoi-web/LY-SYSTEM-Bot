@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getInviteConfig, updateInviteConfig } from '../../db/community';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface InvitesDeps {
   prisma: PrismaClient;
@@ -15,10 +16,10 @@ const optStr = (v: unknown): string | null => {
 
 export function createInvitesRouter(deps: InvitesDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const [cfg, leaderboard] = await Promise.all([
       getInviteConfig(guildId),
       prisma.inviteStat.findMany({ where: { guildId }, orderBy: { regular: 'desc' }, take: 50 }),
@@ -27,6 +28,7 @@ export function createInvitesRouter(deps: InvitesDeps): Router {
   });
 
   router.put('/config', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);

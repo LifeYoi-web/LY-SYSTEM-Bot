@@ -5,6 +5,7 @@ import { getLevelConfig, updateLevelConfig, type EditableLevelConfig } from '../
 import { progressInLevel } from '../../shared/leveling';
 import { getPlan } from '../../db/subscriptions';
 import { hasFeature } from '../../shared/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface LevelingDeps {
   prisma: PrismaClient;
@@ -18,10 +19,10 @@ const optStr = (v: unknown): string | null => {
 
 export function createLevelingRouter(deps: LevelingDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
-  const guildId = config.guildId;
+  const { prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const [cfg, rewards] = await Promise.all([
       getLevelConfig(guildId),
       prisma.levelRoleReward.findMany({ where: { guildId }, orderBy: { level: 'asc' } }),
@@ -30,6 +31,7 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
   });
 
   router.put('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: EditableLevelConfig = {};
     for (const k of ['enabled', 'levelUpEnabled', 'stackRewards', 'voiceXpEnabled'] as const) {
@@ -69,7 +71,8 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
     res.json(await updateLevelConfig(guildId, data));
   });
 
-  router.get('/leaderboard', async (_req, res) => {
+  router.get('/leaderboard', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const rows = await prisma.memberLevel.findMany({ where: { guildId }, orderBy: { xp: 'desc' }, take: 25 });
     res.json({
       leaderboard: rows.map((r, i) => ({
@@ -83,6 +86,7 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
   });
 
   router.post('/rewards', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const { level, roleId } = (req.body ?? {}) as { level?: unknown; roleId?: unknown };
     const lvl = Number(level);
     if (!Number.isInteger(lvl) || lvl < 1 || lvl > 1000) return res.status(400).json({ error: 'level must be 1..1000' });

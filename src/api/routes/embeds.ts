@@ -4,6 +4,7 @@ import type { Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
 import { postOrEditEmbed, isValidEmbed, type EmbedPayload } from '../../bot/embeds';
 import { planLimit } from '../middleware/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface EmbedsDeps {
   client: Client;
@@ -13,15 +14,16 @@ export interface EmbedsDeps {
 
 export function createEmbedsRouter(deps: EmbedsDeps): Router {
   const router = Router();
-  const { client, prisma, config } = deps;
-  const guildId = config.guildId;
+  const { client, prisma } = deps;
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const embeds = await prisma.savedEmbed.findMany({ where: { guildId }, orderBy: { updatedAt: 'desc' } });
     res.json({ embeds });
   });
 
   router.post('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const name = String(b.name ?? '').trim();
     if (!name || name.length > 80) return res.status(400).json({ error: 'name required (≤80 chars)' });
@@ -62,6 +64,7 @@ export function createEmbedsRouter(deps: EmbedsDeps): Router {
 
   // Post (or re-edit) a saved embed to a channel.
   router.post('/:id/post', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const channelId = String((req.body as Record<string, unknown>)?.channelId ?? '').trim();
     const embed = await prisma.savedEmbed.findUnique({ where: { id: req.params.id } });
     if (!embed || embed.guildId !== guildId) return res.status(404).json({ error: 'not found' });

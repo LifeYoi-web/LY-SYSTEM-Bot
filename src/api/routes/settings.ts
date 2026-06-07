@@ -4,6 +4,7 @@ import { getSettings, updateSettings, type EditableSettings } from '../../db/set
 import { WELCOME_CARD_STYLE_KEYS } from '../../bot/welcomeCard';
 import { getPlan } from '../../db/subscriptions';
 import { hasFeature } from '../../shared/entitlements';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface SettingsDeps {
   config: Pick<AppConfig, 'guildId'>;
@@ -21,11 +22,13 @@ function optStr(v: unknown): string | null {
 export function createSettingsRouter(deps: SettingsDeps): Router {
   const router = Router();
 
-  router.get('/', async (_req, res) => {
-    res.json(await getSettings(deps.config.guildId));
+  router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
+    res.json(await getSettings(guildId));
   });
 
   router.put('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: EditableSettings = {};
 
@@ -120,7 +123,6 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
     }
 
     // Premium gates — only resolve plan when a gated field is actually present.
-    const guildId = deps.config.guildId;
     const styleGated = b.welcomeCardStyle !== undefined && String(b.welcomeCardStyle) !== 'classic';
     const bgGated = b.welcomeCardBg !== undefined && b.welcomeCardBg !== null; // null = clear, always free
     if (styleGated || bgGated) {

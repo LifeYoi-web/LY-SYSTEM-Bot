@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { buildDateSeries, lastNDates, clamp } from '../../shared/analytics';
+import { tenantGuildId } from '../middleware/tenant';
 
 export interface AnalyticsDeps {
   prisma: PrismaClient;
@@ -10,24 +11,25 @@ export interface AnalyticsDeps {
 
 export function createAnalyticsRouter(deps: AnalyticsDeps): Router {
   const router = Router();
-  const { prisma, config } = deps;
+  const { prisma } = deps;
 
   router.get('/', async (req, res) => {
+    const guildId = tenantGuildId(req);
     const days = clamp(Number(req.query.days ?? 14), 7, 90);
     const dates = lastNDates(days);
 
     const [stats, caseGroups, modGroups] = await Promise.all([
       prisma.dailyStat.findMany({
-        where: { guildId: config.guildId, date: { in: dates } },
+        where: { guildId, date: { in: dates } },
       }),
       prisma.moderationCase.groupBy({
         by: ['type'],
-        where: { guildId: config.guildId },
+        where: { guildId },
         _count: { type: true },
       }),
       prisma.moderationCase.groupBy({
         by: ['moderatorId'],
-        where: { guildId: config.guildId },
+        where: { guildId },
         _count: { moderatorId: true },
         orderBy: { _count: { moderatorId: 'desc' } },
         take: 5,
