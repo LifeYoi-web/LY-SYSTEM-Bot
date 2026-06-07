@@ -1,21 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, apiPost, apiPut, apiDelete } from './api';
-
-// ---- Entitlements ----
-export interface Entitlements {
-  plan: 'free' | 'premium' | 'custom';
-  features: Record<string, boolean>;
-  limits: Record<string, number | null>;
-}
-
-export function useEntitlements() {
-  return useQuery<Entitlements>({
-    queryKey: ['entitlements'],
-    queryFn: () => api('/entitlements'),
-    staleTime: 60_000,
-  });
-}
-
 import type {
   Overview,
   BotPresence,
@@ -36,6 +20,21 @@ import type {
   AutoResponse,
   ScheduledMessage,
 } from './types';
+
+// ---- Entitlements ----
+export interface Entitlements {
+  plan: 'free' | 'premium' | 'custom';
+  features: Record<string, boolean>;
+  limits: Record<string, number | null>;
+}
+
+export function useEntitlements() {
+  return useQuery<Entitlements>({
+    queryKey: ['entitlements'],
+    queryFn: () => api('/entitlements'),
+    staleTime: 60_000,
+  });
+}
 
 export function useOverview() {
   return useQuery<Overview>({ queryKey: ['overview'], queryFn: () => api('/overview'), refetchInterval: 30_000 });
