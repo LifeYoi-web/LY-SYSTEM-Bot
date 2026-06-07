@@ -51,6 +51,8 @@ import { createEntitlementsRouter } from './routes/entitlements';
 import { requireStaff } from './middleware/requireStaff';
 import { requireFeature } from './middleware/entitlements';
 import { rateLimit } from './middleware/rateLimit';
+import { tenantContext, tenantGuildId } from './middleware/tenant';
+import { requireOwner } from './middleware/requireOwner';
 
 export interface ApiDeps {
   client: Client;
@@ -98,58 +100,68 @@ export function createApp(deps: ApiDeps): Express {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', createAuthRouter(deps));
 
-  // Everything below requires an authorized staff session.
-  app.use('/api/overview', requireStaff(), createOverviewRouter(deps));
-  app.use('/api/analytics', requireStaff(), createAnalyticsRouter(deps));
-  app.use('/api/members', requireStaff(), createMembersRouter(deps));
-  app.use('/api/server', requireStaff(), createServerRouter(deps));
-  app.use('/api/logs', requireStaff(), createLogsRouter(deps));
+  // Tenant middleware: validates the session-selected guild and attaches req.tenant.
+  // Built once; injected after requireStaff() on every non-auth, non-health, non-bot route.
+  // /api/bot is intentionally excluded — bot routes are global (presence/restart are not
+  // per-guild) and read settings via config.guildId (the owner guild's row). requireOwner
+  // gates it instead.
+  const tenant = tenantContext(deps.config);
+
+  // Everything below requires an authorized staff session + tenant resolution.
+  app.use('/api/overview', requireStaff(), tenant, createOverviewRouter(deps));
+  app.use('/api/analytics', requireStaff(), tenant, createAnalyticsRouter(deps));
+  app.use('/api/members', requireStaff(), tenant, createMembersRouter(deps));
+  app.use('/api/server', requireStaff(), tenant, createServerRouter(deps));
+  app.use('/api/logs', requireStaff(), tenant, createLogsRouter(deps));
   app.use(
     '/api/moderation',
     requireStaff(),
+    tenant,
     rateLimit({ windowMs: 60_000, max: 30 }),
     createModerationRouter(deps),
   );
-  app.use('/api/settings', requireStaff(), createSettingsRouter({ config: deps.config }));
-  app.use('/api/automod', requireStaff(), createAutoModRouter({ config: deps.config }));
-  app.use('/api/leveling', requireStaff(), createLevelingRouter(deps));
-  app.use('/api/rolepanels', requireStaff(), createRolePanelsRouter(deps));
-  app.use('/api/announce', requireStaff(), rateLimit({ windowMs: 60_000, max: 20 }), createAnnounceRouter(deps));
-  app.use('/api/autoresponders', requireStaff(), createAutoRespondersRouter(deps));
-  app.use('/api/scheduled', requireStaff(), createScheduledRouter(deps));
-  app.use('/api/tickets', requireStaff(), createTicketsRouter(deps));
-  app.use('/api/giveaways', requireStaff(), createGiveawaysRouter(deps));
-  app.use('/api/starboard', requireStaff(), createStarboardRouter(deps));
-  app.use('/api/suggestions', requireStaff(), createSuggestionsRouter(deps));
-  app.use('/api/birthdays', requireStaff(), createBirthdaysRouter(deps));
-  app.use('/api/tags', requireStaff(), createTagsRouter(deps));
-  app.use('/api/sticky', requireStaff(), createStickyRouter(deps));
-  app.use('/api/counting', requireStaff(), createCountingRouter(deps));
-  app.use('/api/statcounters', requireStaff(), createStatCountersRouter(deps));
-  app.use('/api/reminders', requireStaff(), createRemindersRouter(deps));
-  app.use('/api/report', requireStaff(), createReportRouter(deps));
-  app.use('/api/tempvoice', requireStaff(), requireFeature('tempVoice', () => deps.config.guildId), createTempVoiceRouter(deps));
-  app.use('/api/notes', requireStaff(), createNotesRouter(deps));
-  app.use('/api/rules', requireStaff(), createRulesRouter(deps));
-  app.use('/api/bot', requireStaff(), createBotRouter({ client: deps.client, config: deps.config }));
+  app.use('/api/settings', requireStaff(), tenant, createSettingsRouter({ config: deps.config }));
+  app.use('/api/automod', requireStaff(), tenant, createAutoModRouter({ config: deps.config }));
+  app.use('/api/leveling', requireStaff(), tenant, createLevelingRouter(deps));
+  app.use('/api/rolepanels', requireStaff(), tenant, createRolePanelsRouter(deps));
+  app.use('/api/announce', requireStaff(), tenant, rateLimit({ windowMs: 60_000, max: 20 }), createAnnounceRouter(deps));
+  app.use('/api/autoresponders', requireStaff(), tenant, createAutoRespondersRouter(deps));
+  app.use('/api/scheduled', requireStaff(), tenant, createScheduledRouter(deps));
+  app.use('/api/tickets', requireStaff(), tenant, createTicketsRouter(deps));
+  app.use('/api/giveaways', requireStaff(), tenant, createGiveawaysRouter(deps));
+  app.use('/api/starboard', requireStaff(), tenant, createStarboardRouter(deps));
+  app.use('/api/suggestions', requireStaff(), tenant, createSuggestionsRouter(deps));
+  app.use('/api/birthdays', requireStaff(), tenant, createBirthdaysRouter(deps));
+  app.use('/api/tags', requireStaff(), tenant, createTagsRouter(deps));
+  app.use('/api/sticky', requireStaff(), tenant, createStickyRouter(deps));
+  app.use('/api/counting', requireStaff(), tenant, createCountingRouter(deps));
+  app.use('/api/statcounters', requireStaff(), tenant, createStatCountersRouter(deps));
+  app.use('/api/reminders', requireStaff(), tenant, createRemindersRouter(deps));
+  app.use('/api/report', requireStaff(), tenant, createReportRouter(deps));
+  app.use('/api/tempvoice', requireStaff(), tenant, requireFeature('tempVoice', (req) => tenantGuildId(req)), createTempVoiceRouter(deps));
+  app.use('/api/notes', requireStaff(), tenant, createNotesRouter(deps));
+  app.use('/api/rules', requireStaff(), tenant, createRulesRouter(deps));
+  // /api/bot: owner-only + no tenant middleware (global bot routes, reads owner guild's settings row)
+  app.use('/api/bot', requireStaff(), requireOwner(deps.config), createBotRouter({ client: deps.client, config: deps.config }));
   app.use(
     '/api/creatorannounce',
     requireStaff(),
-    requireFeature('creatorAlerts', () => deps.config.guildId),
+    tenant,
+    requireFeature('creatorAlerts', (req) => tenantGuildId(req)),
     rateLimit({ windowMs: 60_000, max: 20 }),
     createCreatorAnnounceRouter(deps),
   );
-  app.use('/api/invites', requireStaff(), createInvitesRouter(deps));
-  app.use('/api/raid', requireStaff(), createRaidRouter(deps));
-  app.use('/api/economy', requireStaff(), createEconomyRouter(deps));
-  app.use('/api/shop', requireStaff(), createShopRouter(deps));
-  app.use('/api/embeds', requireStaff(), rateLimit({ windowMs: 60_000, max: 30 }), createEmbedsRouter(deps));
-  app.use('/api/applications', requireStaff(), createApplicationsRouter(deps));
-  app.use('/api/staffreport', requireStaff(), createStaffReportRouter(deps));
-  app.use('/api/digest', requireStaff(), createDigestRouter(deps));
-  app.use('/api/boosters', requireStaff(), createBoostersRouter(deps));
-  app.use('/api/alerts', requireStaff(), createAlertsRouter(deps));
-  app.use('/api/entitlements', requireStaff(), createEntitlementsRouter({ config: deps.config }));
+  app.use('/api/invites', requireStaff(), tenant, createInvitesRouter(deps));
+  app.use('/api/raid', requireStaff(), tenant, createRaidRouter(deps));
+  app.use('/api/economy', requireStaff(), tenant, createEconomyRouter(deps));
+  app.use('/api/shop', requireStaff(), tenant, createShopRouter(deps));
+  app.use('/api/embeds', requireStaff(), tenant, rateLimit({ windowMs: 60_000, max: 30 }), createEmbedsRouter(deps));
+  app.use('/api/applications', requireStaff(), tenant, createApplicationsRouter(deps));
+  app.use('/api/staffreport', requireStaff(), tenant, createStaffReportRouter(deps));
+  app.use('/api/digest', requireStaff(), tenant, createDigestRouter(deps));
+  app.use('/api/boosters', requireStaff(), tenant, createBoostersRouter(deps));
+  app.use('/api/alerts', requireStaff(), tenant, createAlertsRouter(deps));
+  app.use('/api/entitlements', requireStaff(), tenant, createEntitlementsRouter({ config: deps.config }));
 
   const webDist = join(__dirname, '..', '..', 'web', 'dist');
   app.use(express.static(webDist));

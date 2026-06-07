@@ -4,12 +4,13 @@ import { hasFeature, limitFor, type FeatureKey, type LimitKey } from '../../shar
 
 /**
  * 403 + { upgrade: true } when the guild's plan lacks the feature.
- * Mount AFTER requireStaff. `getGuildId` is a thunk so A2 can swap in the
- * session-selected guild without touching call sites.
+ * Mount AFTER requireStaff + tenantContext. `getGuildId` receives the request so
+ * callers can pass `(req) => tenantGuildId(req)` for tenant-aware checks.
+ * A zero-arg thunk `() => 'g1'` remains assignable (TS allows fewer params).
  */
-export function requireFeature(key: FeatureKey, getGuildId: () => string): RequestHandler {
-  return async (_req, res, next) => {
-    if (hasFeature(await getPlan(getGuildId()), key)) return next();
+export function requireFeature(key: FeatureKey, getGuildId: (req: Parameters<RequestHandler>[0]) => string): RequestHandler {
+  return async (req, res, next) => {
+    if (hasFeature(await getPlan(getGuildId(req)), key)) return next();
     res.status(403).json({ error: 'premium feature', upgrade: true, feature: key });
   };
 }
