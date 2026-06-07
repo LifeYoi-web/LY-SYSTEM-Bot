@@ -121,10 +121,14 @@ describe('ensureSubscription / markGuildLeft (multi-guild lifecycle)', () => {
   });
 
   it('markGuildLeft sets status left without touching plan, and invalidates the cache', async () => {
+    fakePrisma.subscription.findUnique.mockResolvedValue({ plan: 'premium' });
+    expect(await getPlan('g-gone')).toBe('premium'); // warm the cache
     await markGuildLeft('g-gone');
     expect(fakePrisma.subscription.updateMany).toHaveBeenCalledWith({
       where: { guildId: 'g-gone' },
       data: { status: 'left' },
     });
+    fakePrisma.subscription.findUnique.mockResolvedValue(null);
+    expect(await getPlan('g-gone')).toBe('free'); // cache invalidated → re-read
   });
 });
