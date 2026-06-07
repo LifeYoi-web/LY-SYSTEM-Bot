@@ -44,8 +44,9 @@ function deps() {
       ticketTranscript: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue(null) },
       ticketType: {
         create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'ty1', ...data })),
-        update: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'ty1', ...data })),
-        delete: vi.fn().mockResolvedValue({}),
+        findUnique: vi.fn().mockResolvedValue({ id: 'ty1', guildId: 'g1' }),
+        update: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'ty1', guildId: 'g1', ...data })),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
         count: vi.fn().mockResolvedValue(0),
       },
     },

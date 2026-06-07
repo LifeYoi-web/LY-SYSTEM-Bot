@@ -96,6 +96,8 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
 
   router.put('/types/:id', async (req, res) => {
     const guildId = tenantGuildId(req);
+    const existing = await prisma.ticketType.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'type not found' });
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.label !== undefined) {
@@ -116,7 +118,7 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
     if (b.position !== undefined) data.position = Number(b.position) || 0;
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
     const updated = await prisma.ticketType
-      .update({ where: { id: req.params.id }, data })
+      .update({ where: { id: existing.id }, data })
       .catch(() => null);
     if (!updated) return res.status(404).json({ error: 'type not found' });
     invalidateTicketTypes(guildId);
@@ -125,7 +127,8 @@ export function createTicketsRouter(deps: TicketsDeps): Router {
 
   router.delete('/types/:id', async (req, res) => {
     const guildId = tenantGuildId(req);
-    await prisma.ticketType.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const { count } = await prisma.ticketType.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     invalidateTicketTypes(guildId);
     res.json({ ok: true });
   });

@@ -77,7 +77,9 @@ export function createGiveawaysRouter(deps: GiveawaysDeps): Router {
   });
 
   router.delete('/:id', async (req, res) => {
-    await prisma.giveaway.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.giveaway.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 

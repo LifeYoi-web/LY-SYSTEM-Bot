@@ -41,6 +41,9 @@ export function createEmbedsRouter(deps: EmbedsDeps): Router {
   });
 
   router.put('/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
+    const existing = await prisma.savedEmbed.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.name !== undefined) {
@@ -52,13 +55,15 @@ export function createEmbedsRouter(deps: EmbedsDeps): Router {
       if (!isValidEmbed(b.payload as EmbedPayload)) return res.status(400).json({ error: 'embed needs a title, description, or fields' });
       data.payload = b.payload as Prisma.InputJsonValue;
     }
-    const updated = await prisma.savedEmbed.update({ where: { id: req.params.id }, data }).catch(() => null);
+    const updated = await prisma.savedEmbed.update({ where: { id: existing.id }, data }).catch(() => null);
     if (!updated) return res.status(404).json({ error: 'not found' });
     res.json(updated);
   });
 
   router.delete('/:id', async (req, res) => {
-    await prisma.savedEmbed.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.savedEmbed.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 

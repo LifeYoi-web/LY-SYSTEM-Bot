@@ -100,7 +100,9 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
   });
 
   router.delete('/rewards/:id', async (req, res) => {
-    await prisma.levelRoleReward.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.levelRoleReward.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 

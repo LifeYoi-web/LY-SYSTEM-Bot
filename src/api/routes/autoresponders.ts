@@ -43,6 +43,8 @@ export function createAutoRespondersRouter(deps: AutoRespondersDeps): Router {
 
   router.put('/:id', async (req, res) => {
     const guildId = tenantGuildId(req);
+    const existing = await prisma.autoResponse.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.trigger !== undefined) data.trigger = String(b.trigger).trim().slice(0, 100);
@@ -52,14 +54,15 @@ export function createAutoRespondersRouter(deps: AutoRespondersDeps): Router {
       data.matchType = String(b.matchType);
     }
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
-    const item = await prisma.autoResponse.update({ where: { id: req.params.id }, data });
+    const item = await prisma.autoResponse.update({ where: { id: existing.id }, data });
     invalidateAutoResponses(guildId);
     res.json(item);
   });
 
   router.delete('/:id', async (req, res) => {
     const guildId = tenantGuildId(req);
-    await prisma.autoResponse.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const { count } = await prisma.autoResponse.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     invalidateAutoResponses(guildId);
     res.json({ ok: true });
   });

@@ -57,6 +57,9 @@ export function createShopRouter(deps: ShopDeps): Router {
   });
 
   router.put('/items/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
+    const existing = await prisma.shopItem.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.roleId !== undefined) data.roleId = String(b.roleId);
@@ -83,13 +86,15 @@ export function createShopRouter(deps: ShopDeps): Router {
       if (n === undefined) return res.status(400).json({ error: 'requiredLevel must be 0..1000 or empty' });
       data.requiredLevel = n;
     }
-    const updated = await prisma.shopItem.update({ where: { id: req.params.id }, data }).catch(() => null);
+    const updated = await prisma.shopItem.update({ where: { id: existing.id }, data }).catch(() => null);
     if (!updated) return res.status(404).json({ error: 'not found' });
     res.json(updated);
   });
 
   router.delete('/items/:id', async (req, res) => {
-    await prisma.shopItem.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.shopItem.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 

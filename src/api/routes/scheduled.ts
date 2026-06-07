@@ -41,6 +41,9 @@ export function createScheduledRouter(deps: ScheduledDeps): Router {
   });
 
   router.put('/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
+    const existing = await prisma.scheduledMessage.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Record<string, unknown> = {};
     if (b.channelId !== undefined) data.channelId = String(b.channelId);
@@ -55,12 +58,14 @@ export function createScheduledRouter(deps: ScheduledDeps): Router {
       if (Number.isNaN(d.getTime())) return res.status(400).json({ error: 'invalid runAt' });
       data.runAt = d;
     }
-    const item = await prisma.scheduledMessage.update({ where: { id: req.params.id }, data });
+    const item = await prisma.scheduledMessage.update({ where: { id: existing.id }, data });
     res.json(item);
   });
 
   router.delete('/:id', async (req, res) => {
-    await prisma.scheduledMessage.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.scheduledMessage.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 

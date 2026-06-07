@@ -38,7 +38,9 @@ export function createStatCountersRouter(deps: StatCountersDeps): Router {
   });
 
   router.delete('/:id', async (req, res) => {
-    await prisma.statCounter.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.statCounter.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 

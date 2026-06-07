@@ -47,7 +47,9 @@ export function createTagsRouter(deps: TagsDeps): Router {
   });
 
   router.delete('/:id', async (req, res) => {
-    await prisma.tag.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.tag.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 

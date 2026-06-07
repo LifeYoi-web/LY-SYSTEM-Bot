@@ -95,6 +95,9 @@ export function createRolePanelsRouter(deps: RolePanelsDeps): Router {
   });
 
   router.put('/:id', async (req, res) => {
+    const guildId = tenantGuildId(req);
+    const existing = await prisma.rolePanel.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.guildId !== guildId) return res.status(404).json({ error: 'not found' });
     const b = (req.body ?? {}) as Record<string, unknown>;
     const data: Prisma.RolePanelUpdateInput = {};
     if (b.title !== undefined) data.title = String(b.title).trim().slice(0, 256);
@@ -104,12 +107,14 @@ export function createRolePanelsRouter(deps: RolePanelsDeps): Router {
       if (roles === null) return res.status(400).json({ error: 'invalid roles' });
       data.roles = roles as unknown as Prisma.InputJsonValue;
     }
-    const panel = await prisma.rolePanel.update({ where: { id: req.params.id }, data });
+    const panel = await prisma.rolePanel.update({ where: { id: existing.id }, data });
     res.json(panel);
   });
 
   router.delete('/:id', async (req, res) => {
-    await prisma.rolePanel.delete({ where: { id: req.params.id } }).catch(() => undefined);
+    const guildId = tenantGuildId(req);
+    const { count } = await prisma.rolePanel.deleteMany({ where: { id: req.params.id, guildId } });
+    if (count === 0) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   });
 
