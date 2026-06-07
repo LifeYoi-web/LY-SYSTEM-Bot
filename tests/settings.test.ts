@@ -2,10 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
+const { fakePrisma } = vi.hoisted(() => ({
+  fakePrisma: { subscription: { findUnique: vi.fn() } },
+}));
+vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
+
 const { getSettings, updateSettings } = vi.hoisted(() => ({ getSettings: vi.fn(), updateSettings: vi.fn() }));
 vi.mock('../src/db/settingsCache', () => ({ getSettings, updateSettings }));
 
 import { createSettingsRouter } from '../src/api/routes/settings';
+import { _resetPlans } from '../src/db/subscriptions';
 
 const row = { guildId: 'g1', logChannelId: null, staffRoleIds: [] as string[] };
 
@@ -17,6 +23,8 @@ function app() {
 }
 
 beforeEach(() => {
+  _resetPlans();
+  fakePrisma.subscription.findUnique.mockResolvedValue(null); // free by default
   getSettings.mockReset().mockResolvedValue(row);
   updateSettings.mockReset().mockImplementation((_g: string, data: any) => Promise.resolve({ ...row, ...data }));
 });
@@ -66,7 +74,8 @@ describe('settings router', () => {
     expect(updateSettings).toHaveBeenCalledWith('g1', { welcomeEmbedEnabled: false, goodbyeEmbedEnabled: true });
   });
 
-  it('PUT / accepts a valid welcomeCardStyle', async () => {
+  it('PUT / accepts a valid welcomeCardStyle for a premium guild', async () => {
+    fakePrisma.subscription.findUnique.mockResolvedValue({ plan: 'premium' });
     await request(app()).put('/api/settings').send({ welcomeCardStyle: 'vip-ticket' }).expect(200);
     expect(updateSettings).toHaveBeenCalledWith('g1', { welcomeCardStyle: 'vip-ticket' });
   });

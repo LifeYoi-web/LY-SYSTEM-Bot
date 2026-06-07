@@ -2,6 +2,8 @@ import { Router } from 'express';
 import type { AppConfig } from '../../shared/config';
 import { getSettings, updateSettings, type EditableSettings } from '../../db/settingsCache';
 import { WELCOME_CARD_STYLE_KEYS } from '../../bot/welcomeCard';
+import { getPlan } from '../../db/subscriptions';
+import { hasFeature } from '../../shared/entitlements';
 
 export interface SettingsDeps {
   config: Pick<AppConfig, 'guildId'>;
@@ -117,7 +119,22 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
       data.welcomeButtons = b.welcomeButtons;
     }
 
-    const updated = await updateSettings(deps.config.guildId, data);
+    // Premium gates — only resolve plan when a gated field is actually present.
+    const guildId = deps.config.guildId;
+    if (
+      (b.welcomeCardStyle !== undefined && String(b.welcomeCardStyle) !== 'classic') ||
+      (b.welcomeCardBg !== undefined && b.welcomeCardBg !== null)
+    ) {
+      const plan = await getPlan(guildId);
+      if (b.welcomeCardStyle !== undefined && String(b.welcomeCardStyle) !== 'classic' && !hasFeature(plan, 'welcomeStyles')) {
+        return res.status(403).json({ error: 'premium feature', upgrade: true, feature: 'welcomeStyles' });
+      }
+      if (b.welcomeCardBg !== undefined && b.welcomeCardBg !== null && !hasFeature(plan, 'welcomeCustomBg')) {
+        return res.status(403).json({ error: 'premium feature', upgrade: true, feature: 'welcomeCustomBg' });
+      }
+    }
+
+    const updated = await updateSettings(guildId, data);
     res.json(updated);
   });
 

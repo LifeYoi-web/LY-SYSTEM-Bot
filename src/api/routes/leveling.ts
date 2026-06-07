@@ -3,6 +3,8 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppConfig } from '../../shared/config';
 import { getLevelConfig, updateLevelConfig, type EditableLevelConfig } from '../../db/leveling';
 import { progressInLevel } from '../../shared/leveling';
+import { getPlan } from '../../db/subscriptions';
+import { hasFeature } from '../../shared/entitlements';
 
 export interface LevelingDeps {
   prisma: PrismaClient;
@@ -58,6 +60,12 @@ export function createLevelingRouter(deps: LevelingDeps): Router {
       if (s && s.length > 500) return res.status(400).json({ error: 'levelUpMessage too long' });
       data.levelUpMessage = s;
     }
+
+    // Premium gate: voiceXpEnabled requires the voiceXp feature.
+    if (b.voiceXpEnabled === true && !hasFeature(await getPlan(guildId), 'voiceXp')) {
+      return res.status(403).json({ error: 'premium feature', upgrade: true, feature: 'voiceXp' });
+    }
+
     res.json(await updateLevelConfig(guildId, data));
   });
 

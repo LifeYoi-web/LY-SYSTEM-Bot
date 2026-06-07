@@ -49,6 +49,7 @@ import { createBoostersRouter } from './routes/boosters';
 import { createAlertsRouter } from './routes/alerts';
 import { createEntitlementsRouter } from './routes/entitlements';
 import { requireStaff } from './middleware/requireStaff';
+import { requireFeature } from './middleware/entitlements';
 import { rateLimit } from './middleware/rateLimit';
 
 export interface ApiDeps {
@@ -127,13 +128,14 @@ export function createApp(deps: ApiDeps): Express {
   app.use('/api/statcounters', requireStaff(), createStatCountersRouter(deps));
   app.use('/api/reminders', requireStaff(), createRemindersRouter(deps));
   app.use('/api/report', requireStaff(), createReportRouter(deps));
-  app.use('/api/tempvoice', requireStaff(), createTempVoiceRouter(deps));
+  app.use('/api/tempvoice', requireStaff(), requireFeature('tempVoice', () => deps.config.guildId), createTempVoiceRouter(deps));
   app.use('/api/notes', requireStaff(), createNotesRouter(deps));
   app.use('/api/rules', requireStaff(), createRulesRouter(deps));
   app.use('/api/bot', requireStaff(), createBotRouter({ client: deps.client, config: deps.config }));
   app.use(
     '/api/creatorannounce',
     requireStaff(),
+    requireFeature('creatorAlerts', () => deps.config.guildId),
     rateLimit({ windowMs: 60_000, max: 20 }),
     createCreatorAnnounceRouter(deps),
   );
