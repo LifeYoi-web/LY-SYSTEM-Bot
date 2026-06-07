@@ -121,15 +121,14 @@ export function createSettingsRouter(deps: SettingsDeps): Router {
 
     // Premium gates — only resolve plan when a gated field is actually present.
     const guildId = deps.config.guildId;
-    if (
-      (b.welcomeCardStyle !== undefined && String(b.welcomeCardStyle) !== 'classic') ||
-      (b.welcomeCardBg !== undefined && b.welcomeCardBg !== null)
-    ) {
+    const styleGated = b.welcomeCardStyle !== undefined && String(b.welcomeCardStyle) !== 'classic';
+    const bgGated = b.welcomeCardBg !== undefined && b.welcomeCardBg !== null; // null = clear, always free
+    if (styleGated || bgGated) {
       const plan = await getPlan(guildId);
-      if (b.welcomeCardStyle !== undefined && String(b.welcomeCardStyle) !== 'classic' && !hasFeature(plan, 'welcomeStyles')) {
+      if (styleGated && !hasFeature(plan, 'welcomeStyles')) {
         return res.status(403).json({ error: 'premium feature', upgrade: true, feature: 'welcomeStyles' });
       }
-      if (b.welcomeCardBg !== undefined && b.welcomeCardBg !== null && !hasFeature(plan, 'welcomeCustomBg')) {
+      if (bgGated && !hasFeature(plan, 'welcomeCustomBg')) {
         return res.status(403).json({ error: 'premium feature', upgrade: true, feature: 'welcomeCustomBg' });
       }
     }
