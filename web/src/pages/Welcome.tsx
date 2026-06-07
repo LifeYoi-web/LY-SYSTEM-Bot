@@ -69,7 +69,8 @@ export function Welcome() {
         autoRoleId: d.autoRoleId,
         welcomeUseCard: d.welcomeUseCard,
         welcomeCardBg: d.welcomeCardBg,
-        welcomeCardStyle: d.welcomeCardStyle,
+        // Locked plans coerce to classic so an old premium pick can't 403 every save after a downgrade.
+        welcomeCardStyle: stylesLocked ? 'classic' : d.welcomeCardStyle,
         welcomeButtons: d.welcomeButtons,
         welcomeDmEnabled: d.welcomeDmEnabled,
         welcomeDmMessage: d.welcomeDmMessage,
