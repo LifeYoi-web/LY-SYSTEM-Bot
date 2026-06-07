@@ -39,7 +39,8 @@ async function main() {
         rapidApiKey: config.rapidApiKey,
         rapidApiTikTokHost: config.rapidApiTikTokHost,
       }),
-    registerCommands: () => registerCommands(commands, config.discordToken, config.clientId, config.guildId),
+    // Multi-guild: global registration; clears the stale guild-scoped set from the single-guild era.
+    registerCommands: () => registerCommands(commands, config.discordToken, config.clientId, undefined, { clearGuildId: config.guildId }),
     logError: (msg) => logger.error(msg),
     logInfo: (msg) => logger.info(msg),
   });
