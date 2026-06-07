@@ -24,7 +24,7 @@ module.exports = {
 
     // Registry sync for every guild we are in (settings + subscription + stats).
     const n = await reconcileKnownGuilds(client).catch(() => 0);
-    if (n) logger.success(`Reconciled ${n} guild(s) into the registry`);
+    if (n) logger.success(`Reconciled ${n}/${client.guilds.cache.size} guild(s) into the registry`);
 
     // Owner guild keeps the eager member-cache warm (dashboard member list);
     // other guilds warm lazily on demand.
