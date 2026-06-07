@@ -29,4 +29,12 @@ describe('pruneOldTranscripts', () => {
     expect(await pruneOldTranscripts(deps as any)).toBe(0);
     expect(deleteMany).not.toHaveBeenCalled();
   });
+
+  it('unconfirmed plan (cold cache + DB error): never deletes', async () => {
+    fakePrisma.subscription.findUnique.mockRejectedValue(new Error('db down'));
+    const deleteMany = vi.fn();
+    const deps = { prisma: { ticketTranscript: { deleteMany } }, guildId: 'g-cold', client: {} } as any;
+    expect(await pruneOldTranscripts(deps)).toBe(0);
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
 });

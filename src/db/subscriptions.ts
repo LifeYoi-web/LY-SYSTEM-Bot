@@ -19,12 +19,11 @@ function asPlan(value: string | undefined | null): Plan {
 }
 
 /**
- * A guild's plan, cached ~5 min. Fail-open: on a DB error the last-known plan
- * (from any prior successful read) is served — a paying guild must never lose
- * premium on an infra blip. A cold cache with no prior read and a DB error fails
- * safe to 'free'.
+ * Like getPlan but returns null when the plan cannot be confirmed (cold cache +
+ * DB error). For destructive consumers (e.g. data pruning) that must never act
+ * on the fail-safe 'free' fallback.
  */
-export async function getPlan(guildId: string): Promise<Plan> {
+export async function getConfirmedPlan(guildId: string): Promise<Plan | null> {
   const hit = cache.get(guildId);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.plan;
   try {
@@ -41,8 +40,18 @@ export async function getPlan(guildId: string): Promise<Plan> {
     // No live TTL entry — fall back to last-known (fail-open for paying guilds)
     const known = lastKnown.get(guildId);
     if (known !== undefined) return known;
-    return 'free';
+    return null;
   }
+}
+
+/**
+ * A guild's plan, cached ~5 min. Fail-open: on a DB error the last-known plan
+ * (from any prior successful read) is served — a paying guild must never lose
+ * premium on an infra blip. A cold cache with no prior read and a DB error fails
+ * safe to 'free'.
+ */
+export async function getPlan(guildId: string): Promise<Plan> {
+  return (await getConfirmedPlan(guildId)) ?? 'free';
 }
 
 /** Owner/dashboard writes a plan; TTL cache invalidated so the change is immediate. */

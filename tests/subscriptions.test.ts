@@ -11,7 +11,7 @@ const { fakePrisma } = vi.hoisted(() => {
 });
 vi.mock('../src/db/prisma', () => ({ prisma: fakePrisma }));
 
-import { getPlan, setPlan, seedOwnerPlan, invalidatePlan, _resetPlans } from '../src/db/subscriptions';
+import { getPlan, getConfirmedPlan, setPlan, seedOwnerPlan, invalidatePlan, _resetPlans } from '../src/db/subscriptions';
 
 beforeEach(() => {
   _resetPlans();
@@ -57,6 +57,18 @@ describe('getPlan', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('getConfirmedPlan', () => {
+  it('returns the plan on a successful read', async () => {
+    fakePrisma.subscription.findUnique.mockResolvedValue({ guildId: 'g1', plan: 'premium' });
+    expect(await getConfirmedPlan('g1')).toBe('premium');
+  });
+  it('returns null when cold cache + DB error (getPlan would fall back to free)', async () => {
+    fakePrisma.subscription.findUnique.mockRejectedValue(new Error('db down'));
+    expect(await getConfirmedPlan('g-cold')).toBeNull();
+    expect(await getPlan('g-cold2')).toBe('free'); // getPlan keeps its fail-safe contract
   });
 });
 

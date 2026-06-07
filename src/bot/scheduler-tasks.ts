@@ -12,7 +12,7 @@ import { getSettings } from '../db/settingsCache';
 import { detectAlerts } from '../shared/alerts';
 import { expireDueRoles } from './shop';
 import { sweepRaidLocks } from './raid';
-import { getPlan } from '../db/subscriptions';
+import { getConfirmedPlan } from '../db/subscriptions';
 import { limitFor } from '../shared/entitlements';
 
 const ORANGE = 0xf57c00;
@@ -178,7 +178,9 @@ export async function postWeeklyDigest(deps: TaskDeps, now: Date = new Date(), f
 
 /** Free tier keeps ticket transcripts 7 days (spec §4); paid plans keep forever. */
 export async function pruneOldTranscripts(deps: TaskDeps, now: Date = new Date()): Promise<number> {
-  const days = limitFor(await getPlan(deps.guildId), 'transcriptRetentionDays');
+  const plan = await getConfirmedPlan(deps.guildId);
+  if (plan === null) return 0; // plan unconfirmed (cold cache + DB error) — never delete on a fallback
+  const days = limitFor(plan, 'transcriptRetentionDays');
   if (!Number.isFinite(days)) return 0;
   const cutoff = new Date(now.getTime() - days * 86_400_000);
   const res = await deps.prisma.ticketTranscript.deleteMany({
