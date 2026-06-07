@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useLeveling, useUpdateLeveling, useLeaderboard, useAddReward, useDeleteReward } from '../lib/hooks';
+import { useLeveling, useUpdateLeveling, useLeaderboard, useAddReward, useDeleteReward, useEntitlements } from '../lib/hooks';
 import type { LevelConfig } from '../lib/types';
 import { Icon } from '../lib/icons';
 import { Switch, SkeletonRows, EmptyState, toast, fmt, clampInt } from '../components/ui';
 import { Select, MultiSelect, useChannelOptions, useRoleOptions } from '../components/pickers';
+import { PremiumLock } from '../components/PremiumLock';
 
 export function Leveling() {
   const { data, isLoading } = useLeveling();
@@ -17,6 +18,7 @@ export function Leveling() {
   const [d, setD] = useState<LevelConfig | null>(null);
   const [rwLevel, setRwLevel] = useState(5);
   const [rwRole, setRwRole] = useState<string | null>(null);
+  const { data: ent } = useEntitlements();
 
   useEffect(() => {
     if (data?.config) setD(data.config);
@@ -126,6 +128,7 @@ export function Leveling() {
 
           <div className="card card-pad" style={{ opacity: d.enabled ? 1 : 0.55, pointerEvents: d.enabled ? 'auto' : 'none' }}>
             <div className="card-hd"><div className="card-title"><Icon name="mic" /> XP الصوتي</div></div>
+            <PremiumLock feature="voiceXp" ent={ent ?? null} />
             <div className="toggle-row">
               <div><div className="tr-title">منح XP على التواجد الصوتي</div><div className="tr-sub">يُحتسب لكل دقيقة نشطة في الرومات (غير الكاتم، وبوجود شخصين فأكثر).</div></div>
               <Switch checked={d.voiceXpEnabled} onChange={(v) => set('voiceXpEnabled', v)} />

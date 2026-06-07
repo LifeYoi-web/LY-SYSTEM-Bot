@@ -8,6 +8,8 @@ import {
 import { Icon } from '../lib/icons';
 import { Switch, SkeletonRows, toast } from '../components/ui';
 import { Select, useChannelOptions, useRoleOptions } from '../components/pickers';
+import { useEntitlements } from '../lib/hooks';
+import { PremiumLock } from '../components/PremiumLock';
 
 const PING_OPTIONS = [
   { id: 'everyone', label: '@everyone — كل الأعضاء' },
@@ -23,12 +25,14 @@ export function CreatorAnnounce() {
   const channels = useChannelOptions(['text']);
   const roles = useRoleOptions();
   const [d, setD] = useState<CreatorAnnounceConfig | null>(null);
+  const { data: ent } = useEntitlements();
   useEffect(() => { if (data?.config) setD(data.config); }, [data]);
   if (isLoading || !d) return <SkeletonRows rows={7} />;
   const set = <K extends keyof CreatorAnnounceConfig>(k: K, v: CreatorAnnounceConfig[K]) => setD({ ...d, [k]: v });
 
   return (
     <div className="stack" style={{ maxWidth: 720 }}>
+      <PremiumLock feature="creatorAlerts" ent={ent ?? null} />
       <p className="page-intro" style={{ margin: 0 }}>
         لمّا ينزل مقطع جديد على قناتك، البوت ينشر إشعارًا منسّقًا في القناة المحددة ويعمل ping للأعضاء.
         يوتيوب يشتغل مجانًا بدون أي مفتاح. تيك توك يحتاج مفتاح <code>RAPIDAPI_KEY</code> في إعدادات الاستضافة.

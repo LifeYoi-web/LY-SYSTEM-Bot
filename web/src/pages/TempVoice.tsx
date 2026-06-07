@@ -3,6 +3,8 @@ import { useTempVoice, useUpdateTempVoice, type TempVoiceConfig } from '../lib/c
 import { Icon } from '../lib/icons';
 import { Switch, SkeletonRows, toast } from '../components/ui';
 import { Select, useChannelOptions } from '../components/pickers';
+import { useEntitlements } from '../lib/hooks';
+import { PremiumLock } from '../components/PremiumLock';
 
 export function TempVoice() {
   const { data, isLoading } = useTempVoice();
@@ -10,12 +12,14 @@ export function TempVoice() {
   const voiceChannels = useChannelOptions(['voice']);
   const categories = useChannelOptions(['category']);
   const [d, setD] = useState<TempVoiceConfig | null>(null);
+  const { data: ent } = useEntitlements();
   useEffect(() => { if (data?.config) setD(data.config); }, [data]);
   if (isLoading || !d) return <SkeletonRows rows={6} />;
   const set = <K extends keyof TempVoiceConfig>(k: K, v: TempVoiceConfig[K]) => setD({ ...d, [k]: v });
 
   return (
     <div className="stack" style={{ maxWidth: 720 }}>
+      <PremiumLock feature="tempVoice" ent={ent ?? null} />
       <div className="card card-pad" style={{ borderColor: d.enabled ? 'var(--accent-line)' : undefined }}>
         <div className="toggle-row" style={{ padding: 0, border: 'none' }}>
           <div className="row">

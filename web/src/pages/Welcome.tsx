@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSettings, useUpdateSettings, useOverview } from '../lib/hooks';
+import { useSettings, useUpdateSettings, useOverview, useEntitlements } from '../lib/hooks';
 import type { Settings, WelcomeButton } from '../lib/types';
 import { Icon } from '../lib/icons';
 import { Switch, SkeletonRows, toast } from '../components/ui';
 import { Select, useChannelOptions, useRoleOptions } from '../components/pickers';
+import { PremiumLock } from '../components/PremiumLock';
 
 const DEFAULT_WELCOME = 'أهلًا وسهلًا {user} في **{server}**! 🎉 صرت العضو رقم **#{position}**.';
 const DEFAULT_GOODBYE = 'وداعًا {username} 👋 — صار عدد الأعضاء **{memberCount}**.';
@@ -46,6 +47,8 @@ export function Welcome() {
   const roles = useRoleOptions();
   const [d, setD] = useState<Settings | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const { data: ent } = useEntitlements();
+  const stylesLocked = ent?.features.welcomeStyles === false;
 
   useEffect(() => { if (data) setD(data); }, [data]);
 
@@ -109,6 +112,7 @@ export function Welcome() {
 
   return (
     <div className="stack" style={{ maxWidth: 960 }}>
+      <PremiumLock feature="welcomeStyles" ent={ent ?? null} />
       <div className="card card-pad" style={{ borderColor: d.welcomeEnabled ? 'var(--accent-line)' : undefined }}>
         <div className="toggle-row" style={{ padding: 0, border: 'none' }}>
           <div className="row">
@@ -132,20 +136,31 @@ export function Welcome() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
                   {CARD_STYLES.map((s) => {
                     const active = (d.welcomeCardStyle || 'classic') === s.key;
+                    const isLocked = stylesLocked && s.key !== 'classic';
                     return (
                       <button
                         key={s.key}
                         type="button"
-                        onClick={() => set('welcomeCardStyle', s.key)}
+                        disabled={isLocked}
+                        onClick={() => !isLocked && set('welcomeCardStyle', s.key)}
                         style={{
-                          padding: 0, cursor: 'pointer', textAlign: 'start', background: 'var(--bg-2)',
+                          padding: 0,
+                          cursor: isLocked ? 'not-allowed' : 'pointer',
+                          textAlign: 'start',
+                          background: 'var(--bg-2)',
                           border: active ? '2px solid var(--accent)' : '1px solid var(--line, #2a2f3a)',
-                          borderRadius: 10, overflow: 'hidden',
+                          borderRadius: 10,
+                          overflow: 'hidden',
                           boxShadow: active ? '0 0 0 3px var(--accent-soft)' : 'none',
+                          opacity: isLocked ? 0.5 : 1,
+                          position: 'relative',
                         }}
                       >
                         <img src={`/welcome-styles/${s.key}.png`} alt={s.label} style={{ display: 'block', width: '100%', aspectRatio: '3 / 1', objectFit: 'cover' }} />
-                        <div style={{ padding: '6px 8px', fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : undefined }}>{s.label}</div>
+                        <div style={{ padding: '6px 8px', fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : undefined, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {isLocked && <Icon name="lock" size={11} />}
+                          {s.label}
+                        </div>
                       </button>
                     );
                   })}
