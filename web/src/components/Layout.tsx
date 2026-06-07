@@ -5,6 +5,7 @@ import { useMe, avatarUrl } from '../auth';
 import { useOverview } from '../lib/hooks';
 import { Icon, type IconName } from '../lib/icons';
 import { ToastHost } from './ui';
+import { GuildPicker } from './GuildPicker';
 
 interface NavItem {
   to: string;
@@ -164,26 +165,31 @@ export function Layout() {
           </div>
         </div>
         <nav className="nav">
-          {SECTIONS.map((sec) => (
-            <div key={sec.title}>
-              <div className="nav-sec">{sec.title}</div>
-              {sec.items.map((n) => (
-                <NavLink
-                  key={n.to}
-                  to={n.to}
-                  end={n.end}
-                  className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}
-                  title={n.label}
-                >
-                  <Icon name={n.icon} />
-                  <span className="label">{n.label}</span>
-                  {n.to === '/dashboard/cases' && activeCases > 0 && (
-                    <span className="badge-count">{activeCases}</span>
-                  )}
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          <GuildPicker />
+          {SECTIONS.map((sec) => {
+            const items = sec.items.filter((n) => n.to !== '/dashboard/bot' || me?.isOwner);
+            if (items.length === 0) return null;
+            return (
+              <div key={sec.title}>
+                <div className="nav-sec">{sec.title}</div>
+                {items.map((n) => (
+                  <NavLink
+                    key={n.to}
+                    to={n.to}
+                    end={n.end}
+                    className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}
+                    title={n.label}
+                  >
+                    <Icon name={n.icon} />
+                    <span className="label">{n.label}</span>
+                    {n.to === '/dashboard/cases' && activeCases > 0 && (
+                      <span className="badge-count">{activeCases}</span>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="nav-spacer" />
         <div className="side-user">
