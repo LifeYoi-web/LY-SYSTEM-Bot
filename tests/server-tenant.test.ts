@@ -218,27 +218,30 @@ describe('server.ts mount structure (static source assertion)', () => {
   it('every non-exempt staff mount in server.ts includes the tenant middleware', async () => {
     const fs = await import('fs');
     const path = await import('path');
-    const src = fs.readFileSync(
+    const source = fs.readFileSync(
       path.join(process.cwd(), 'src', 'api', 'server.ts'),
       'utf-8',
     );
 
-    // Extract all app.use('/api/...') lines
-    const mountLines = src
-      .split('\n')
-      .filter((l) => l.includes("app.use('/api/"));
+    // Strip // line comments first so a comment like "// tenant removed" can't
+    // satisfy the later `.includes('tenant')` check with comment text.
+    // Then collapse whitespace so multi-line mounts (e.g. /api/moderation,
+    // /api/creatorannounce) become single logical statements and are not silently
+    // skipped by a line-based filter.
+    const stripped = source.replace(/\/\/[^\n]*/g, '');
+    const collapsed = stripped.replace(/\s+/g, ' ');
+    const mounts = collapsed.match(/app\.use\( ?'\/api\/[^']+'.*?\);/g) ?? [];
 
-    // Lines that are EXEMPT from tenant middleware
-    const exemptPatterns = [
-      '/api/health',  // not a .use() mount, but guard anyway
-      '/api/auth',    // auth router — no session yet
-      '/api/bot',     // owner-only, no tenant needed
-    ];
+    // Routes that are intentionally exempt from tenant middleware.
+    const exempt = ["'/api/auth'", "'/api/bot'"];
+    const staffMounts = mounts.filter((m) => !exempt.some((e) => m.includes(e)));
 
-    const tenantMounts = mountLines.filter((l) => !exemptPatterns.some((p) => l.includes(p)));
+    // Sanity-check: every staff route must be present (catches accidental deletion).
+    expect(staffMounts.length).toBeGreaterThanOrEqual(39);
 
-    // Every non-exempt mount must contain "tenant"
-    const missing = tenantMounts.filter((l) => !l.includes('tenant'));
-    expect(missing, `Mounts missing "tenant": ${missing.join('\n')}`).toHaveLength(0);
+    // Every non-exempt mount must include the tenant middleware.
+    for (const m of staffMounts) {
+      expect(m, `mount missing tenant middleware: ${m.slice(0, 80)}`).toContain('tenant');
+    }
   });
 });
