@@ -47,23 +47,11 @@ function fakeClient() {
 }
 
 /**
- * Build the real app + a MemoryStore with a pre-seeded session.
- * Returns `{ app, sid }` — pass sid as Cookie: connect.sid=s%3A<sid>.<sig>.
- * Because we are using a MemoryStore (not real cookies), we bypass cookie signing
- * by directly calling MemoryStore#set and injecting a raw (unsigned) session id
- * via a fake signed-cookie. The simplest approach: use the session middleware's
- * MemoryStore directly and compute the signed cookie value ourselves.
- *
- * Actually the easiest approach: use supertest's agent + a /api/health hit to get
- * a session cookie, then patch the store directly. But MemoryStore.set takes a
- * sid (the raw, unsign'd value that the session middleware computed internally).
- *
- * Cleanest approach with no sign/unsign: inject a middleware BEFORE the session
- * middleware that sets req.session directly — but that's not possible post-construction.
- *
- * Working approach: use MemoryStore's public `set(sid, session, cb)` API,
- * then craft the cookie manually. express-session signs cookies with
- * `signature.sign(sid, secret)`. We replicate that.
+ * Build the real app + a MemoryStore with a pre-seeded session, exercising the
+ * REAL session middleware end-to-end: seed via MemoryStore's public
+ * `set(sid, session, cb)`, then send the cookie express-session expects —
+ * `connect.sid = "s:" + sign(rawSid, sessionSecret)`. Reusable pattern for any
+ * test that needs an authenticated session against createApp.
  */
 
 import { sign } from 'cookie-signature';
@@ -230,6 +218,8 @@ describe('server.ts mount structure (static source assertion)', () => {
     // skipped by a line-based filter.
     const stripped = source.replace(/\/\/[^\n]*/g, '');
     const collapsed = stripped.replace(/\s+/g, ' ');
+    // NOTE: new mounts must use the literal `app.use('/api/x', …)` single-quoted,
+    // path-first form to be covered by this assertion — keep server.ts conformant.
     const mounts = collapsed.match(/app\.use\( ?'\/api\/[^']+'.*?\);/g) ?? [];
 
     // Routes that are intentionally exempt from tenant middleware.
