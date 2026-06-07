@@ -25,6 +25,8 @@ export interface ManageableGuild {
  * Every mutual guild where the user is staff. Per-guild failures (uncached member,
  * settings read error) skip that guild's staff-role check but never block login —
  * admins resolve from permissions alone.
+ * NOTE: member fetches run SEQUENTIALLY (one REST roundtrip per uncached guild) —
+ * fine at current fleet size; batch with Promise.allSettled if logins get slow at scale.
  */
 export async function discoverManageableGuilds(
   client: { guilds: { cache: Map<string, any> } },
