@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomBytes } from 'crypto';
 import type { Client } from 'discord.js';
 import type { AppConfig } from '../../shared/config';
-import { isStaff } from '../auth-utils';
+import { discoverManageableGuilds } from '../auth-utils';
 import { getSettings } from '../../db/settingsCache';
 import { logger } from '../../shared/logger';
 
@@ -62,14 +62,14 @@ export function createAuthRouter(deps: AuthDeps): Router {
       if (!userRes.ok) throw new Error(`user fetch failed: ${userRes.status}`);
       const user = (await userRes.json()) as { id: string; username: string; avatar: string | null };
 
-      const guild = client.guilds.cache.get(config.guildId);
-      const member = await guild?.members.fetch(user.id).catch(() => null);
-      if (!member) return res.redirect(`${config.dashboardUrl}/login?error=notmember`);
-
-      const settings = await getSettings(config.guildId);
-      if (!isStaff(member, settings.staffRoleIds)) {
-        return res.redirect(`${config.dashboardUrl}/login?error=forbidden`);
-      }
+      const manageable = await discoverManageableGuilds(
+        client,
+        user.id,
+        async (gid) => (await getSettings(gid)).staffRoleIds,
+      );
+      if (manageable.length === 0) return res.redirect(`${config.dashboardUrl}/login?error=forbidden`);
+      const guildIds = manageable.map((g) => g.id);
+      const selected = guildIds.includes(config.guildId) ? config.guildId : guildIds[0];
 
       req.session.regenerate((regenErr) => {
         if (regenErr) {
@@ -82,6 +82,8 @@ export function createAuthRouter(deps: AuthDeps): Router {
           avatar: user.avatar,
           authorized: true,
         };
+        req.session.guildIds = guildIds;
+        req.session.guildId = selected;
         req.session.save((saveErr) => {
           if (saveErr) {
             logger.error(`Session save failed: ${saveErr.message}`);
@@ -102,7 +104,32 @@ export function createAuthRouter(deps: AuthDeps): Router {
       res.status(401).json({ error: 'unauthorized' });
       return;
     }
-    res.json(req.session.user);
+    const guildIds = req.session.guildIds ?? [config.guildId];
+    const guilds = guildIds.map((id) => {
+      const g = client.guilds.cache.get(id);
+      return { id, name: g?.name ?? id, icon: g?.iconURL?.() ?? null };
+    });
+    res.json({
+      ...req.session.user,
+      isOwner: Boolean(config.ownerDiscordId && req.session.user.id === config.ownerDiscordId),
+      guildId: req.session.guildId ?? config.guildId,
+      guilds,
+    });
+  });
+
+  router.post('/select-guild', (req, res) => {
+    if (!req.session.user?.authorized) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const guildId = String((req.body as { guildId?: unknown })?.guildId ?? '');
+    const ids = req.session.guildIds ?? [config.guildId];
+    if (!ids.includes(guildId)) {
+      res.status(403).json({ error: 'guild not accessible' });
+      return;
+    }
+    req.session.guildId = guildId;
+    res.json({ ok: true, guildId });
   });
 
   router.post('/logout', (req, res) => {

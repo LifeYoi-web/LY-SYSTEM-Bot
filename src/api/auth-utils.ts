@@ -14,3 +14,30 @@ export function isStaff(member: StaffCheckMember, staffRoleIds: string[]): boole
   }
   return member.roles.cache.some((r) => staffRoleIds.includes(r.id));
 }
+
+export interface ManageableGuild {
+  id: string;
+  name: string;
+  icon: string | null;
+}
+
+/**
+ * Every mutual guild where the user is staff. Per-guild failures (uncached member,
+ * settings read error) skip that guild's staff-role check but never block login —
+ * admins resolve from permissions alone.
+ */
+export async function discoverManageableGuilds(
+  client: { guilds: { cache: Map<string, any> } },
+  userId: string,
+  getStaffRoleIds: (guildId: string) => Promise<string[]>,
+): Promise<ManageableGuild[]> {
+  const out: ManageableGuild[] = [];
+  for (const guild of client.guilds.cache.values()) {
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) continue;
+    const staffRoleIds = await getStaffRoleIds(guild.id).catch(() => [] as string[]);
+    if (!isStaff(member, staffRoleIds)) continue;
+    out.push({ id: guild.id, name: guild.name, icon: guild.iconURL?.() ?? null });
+  }
+  return out;
+}
