@@ -9,5 +9,9 @@ declare module 'express-session' {
       authorized: boolean;
     };
     oauthState?: string;
+    /** Guilds (ids) where this user is staff — computed at login (A2b multi-guild). */
+    guildIds?: string[];
+    /** The currently selected guild (must be one of guildIds). */
+    guildId?: string;
   }
 }

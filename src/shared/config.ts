@@ -20,6 +20,8 @@ export interface AppConfig {
   lavalinkSecure?: boolean;
   /** Optional: Anthropic API key enabling AI ticket summaries. Absent => AI features stay off. */
   anthropicApiKey?: string;
+  /** Optional: Discord user id allowed on owner-only routes (/api/bot, future fleet/payments). Absent => those routes deny. */
+  ownerDiscordId?: string;
 }
 
 const REQUIRED = [
@@ -50,5 +52,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     lavalinkPassword: env.LAVALINK_PASSWORD || undefined,
     lavalinkSecure: env.LAVALINK_SECURE === 'true',
     anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,
+    ownerDiscordId: env.OWNER_DISCORD_ID || undefined,
   };
 }
