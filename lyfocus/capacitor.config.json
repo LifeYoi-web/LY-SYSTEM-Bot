@@ -1,0 +1,9 @@
+{
+  "appId": "com.ly.focus",
+  "appName": "LY Focus",
+  "webDir": "www",
+  "backgroundColor": "#0a0a0a",
+  "android": {
+    "backgroundColor": "#0a0a0a"
+  }
+}

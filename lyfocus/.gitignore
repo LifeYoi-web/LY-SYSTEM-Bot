@@ -1,0 +1,7 @@
+node_modules/
+android/
+ios/
+resources/icon.png
+resources/splash.png
+*.apk
+.DS_Store
